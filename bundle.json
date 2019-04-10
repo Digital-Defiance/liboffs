@@ -1,0 +1,12 @@
+{
+  "deps": [
+    {
+      "type": "github",
+      "repo": "vijayee/Base58"
+    },
+    {
+      "type": "github",
+      "repo": "vijayee/LRUCache"
+    }
+  ]
+}
