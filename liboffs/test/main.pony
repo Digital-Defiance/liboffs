@@ -9,4 +9,6 @@ actor Main is TestList
     None
   fun tag tests(test: PonyTest) =>
     test(_TestFibonacci)
+    test(_TestFibonacciHitCounter)
     test(_TestSHA2)
+    test(_TestBlock)

@@ -19,6 +19,15 @@ class FibonacciHitCounter
     _count = count'
     _threshold = Fibonacci(_fib)
 
+  fun fib() : U64 val =>
+    _fib
+
+  fun count() : U64 val =>
+    _count
+
+  fun threshold() : U64 val =>
+    _threshold
+    
   fun ref increment() =>
     _count = _count + 1
     if (_count >= _threshold) then
