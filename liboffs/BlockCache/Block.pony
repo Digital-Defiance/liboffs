@@ -66,3 +66,13 @@ class val Block [B: BlockType]
 
   fun size(): USize =>
     data.size()
+
+  fun box op_xor (that: box->Block[B]): Block[B] val ?=>
+    let data2: Array[U8] val = recover
+      let data': Array[U8] = Array[U8](BlockSize[B]())
+      for i in Range(0, BlockSize[B]()) do
+        data'.push(data(i)? xor that.data(i)?)
+      end
+      data'
+    end
+    Block[B](data2)?

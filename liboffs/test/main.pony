@@ -12,3 +12,4 @@ actor Main is TestList
     test(_TestFibonacciHitCounter)
     test(_TestSHA2)
     test(_TestBlock)
+    test(_TestBlockXOR)

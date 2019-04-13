@@ -3,7 +3,7 @@ use "ponytest"
 use "collections"
 
 class iso _TestBlock is UnitTest
-  fun name(): String => "Testing Block"
+  fun name(): String => "Testing Block Creation"
   fun apply(t: TestHelper) =>
     try
       let data: Array[U8] val = [1;2;3;4;5;6;7;8;9;10;11;12;13]
@@ -14,4 +14,19 @@ class iso _TestBlock is UnitTest
       t.assert_true(Block[Nano]()?.data.size() == BlockSize[Nano]())
     else
       t.fail("Block Creation Failed")
+    end
+
+class iso _TestBlockXOR is UnitTest
+  fun name(): String => "Testing Block XOR"
+  fun apply(t: TestHelper) =>
+    try
+      let data: Array[U8] val = [1;2;3;4;5;6;7;8;9;10;11;12;13]
+      let block1: Block[Standard] val = Block[Standard](data)?
+      let block2: Block[Standard] val = Block[Standard]()?
+      let block3: Block[Standard] val = block1 xor? block2
+      let block4: Block[Standard] val = block2 xor? block3
+      t.assert_array_eq[U8](block1.data, block4.data)
+      t.assert_true(block3.data.size() == BlockSize[Standard]())
+    else
+      t.fail("Block XOR Failed")
     end
