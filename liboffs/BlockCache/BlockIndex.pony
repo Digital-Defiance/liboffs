@@ -17,15 +17,18 @@ class IndexEntry
   let hits: FibonacciHitCounter ref
   let key: String val
   var sectionId: USize val
+  var sectionIndex: USize val
 
-  new _create(key': String val, sectionId': USize val) =>
+  new create(key': String val, sectionId': USize val, sectionIndex': USize val) =>
     key = key'
     sectionId = sectionId'
+    sectionIndex = sectionIndex'
     hits = FibonacciHitCounter
 
-  new from(key': String val, sectionId': USize, hits': FibonacciHitCounter) =>
+  new from(key': String val, sectionId': USize val, sectionIndex': USize val, hits': FibonacciHitCounter) =>
     key = key'
     sectionId = sectionId'
+    sectionIndex = sectionIndex'
     hits = hits'
 
   fun box eq(that: box->IndexEntry): Bool =>
@@ -116,6 +119,29 @@ class Index // BTree
           end
           None
       end
+
+  fun ref remove(key: String val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
+    let node : IndexNode = match node'
+      | None => _root
+      | let node: IndexNode => node
+    end
+    match node.bucket
+      | None =>
+        if GetBit(key, index + 1)? then
+          remove(key, node.right, index + 1)?
+        else
+          remove(key, node.left, index + 1)?
+        end
+      | let bucket': List[IndexEntry] =>
+        var i : USize = - 1
+        for entry' in bucket'.values() do
+          i = i + 1
+          if (key == entry'.key) then
+            bucket'.remove(i)?
+            break
+          end
+        end
+    end
 
     fun ref _split(node: IndexNode, index: USize) ? =>
       match node.bucket

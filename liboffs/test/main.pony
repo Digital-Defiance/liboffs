@@ -13,3 +13,4 @@ actor Main is TestList
     test(_TestSHA2)
     test(_TestBlock)
     test(_TestBlockXOR)
+    test(_TestIndex)

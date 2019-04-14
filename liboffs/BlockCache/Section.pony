@@ -9,11 +9,15 @@ actor Section [B: BlockType]
   var _path: FilePath
   var _size: USize
   var _fragments: (List[(USize, USize)] | None) = None
-  new create(path': FilePath, id': USize, size: USize) =>
+  var _index: USize
+  new create(path': FilePath, size: USize, id': USize = 0, index': USize = 0) =>
     _path = path'
     _size = size
-    _id = 0
-
+    _id = id'
+    _index = index'
+    _fragments = [(0, _size * BlockSize[B]())]
+  fun ref nextIndex(): USize val=>
+    _index = _index + 1
   be write(id: USize, block: Block[B], cb: {((Bool | SectionWriteError))} val) =>
     let file: (File | SectionWriteError) = match _file
       | None =>
