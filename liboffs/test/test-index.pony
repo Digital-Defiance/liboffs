@@ -13,7 +13,6 @@ class iso _TestIndex is UnitTest
       let block4: Block[Nano] val = Block[Nano]()?
 
       let path: FilePath = FilePath(t.env.root as AmbientAuth, "./sections")?
-      let section: Section[Nano] = Section[Nano](path, 10, 1, 0)
 
       let indexEntry1: IndexEntry = IndexEntry(block1.key, 1, 0)
       let indexEntry2: IndexEntry = IndexEntry(block2.key, 1, 1)
