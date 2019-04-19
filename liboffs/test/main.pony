@@ -14,3 +14,4 @@ actor Main is TestList
     test(_TestBlock)
     test(_TestBlockXOR)
     test(_TestIndex)
+    test(_TestSection)

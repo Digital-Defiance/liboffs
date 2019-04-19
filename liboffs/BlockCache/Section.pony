@@ -17,13 +17,11 @@ actor Section [B: BlockType]
   var _path: FilePath
   var _size: USize
   var _fragments: (List[Fragment] | None) = None
-  var _index: USize
 
-  new create(path': FilePath, size: USize, id': USize = 0, index': USize = 0) =>
+  new create(path': FilePath, size: USize, id': USize = 0) =>
     _path = path'
     _size = size
     id = id'
-    _index = index'
     let fragments: List[Fragment] = List[Fragment] (1)
     fragments.push(Fragment(0, _size))
     _fragments = fragments
@@ -57,19 +55,29 @@ actor Section [B: BlockType]
       | None => None
       | let fragments: List[Fragment] =>
         var index: USize = -1
+        var nxt: USize = -1
         for frag in fragments.values() do
           index = index + 1
           if (frag.start == frag.finish) then
             fragments.remove(index)?
-            frag.start
+            nxt = frag.start
             break
           else
+            nxt = frag.start
             frag.start = frag.start + 1
             break
           end
         end
+        if (fragments.size() == 0) then
+          _fragments = None
+        end
+        if nxt == -1 then
+          None
+        else
+          nxt
+        end
     end
-    _index = _index + 1
+
   be write(block: Block[B], cb: {((USize | SectionWriteError))} val) =>
     match try _nextIndex()? else None end
       | None =>
@@ -77,15 +85,18 @@ actor Section [B: BlockType]
       | let index : USize =>
         let file: (File | SectionWriteError) = match _file
           | None =>
-            match OpenFile(_path)
+            match CreateFile(_path)
               | let file': File => file'
+              | FileError =>
+                SectionWriteError
             else
               SectionWriteError
             end
           | let file' : File => file'
         end
         match file
-          | SectionWriteError => cb(SectionWriteError)
+          | SectionWriteError =>
+            cb(SectionWriteError)
           | let file': File =>
             let byte: ISize = (index * BlockSize[B]()).isize()
             file'.seek(byte)
@@ -101,7 +112,7 @@ actor Section [B: BlockType]
   be read(index: USize, cb: {((Array[U8] val | SectionReadError))} val) =>
    let file : (File | SectionReadError) = match _file
     | None =>
-      match OpenFile(_path)
+      match CreateFile(_path)
         | let file': File => file'
       else
         SectionReadError
