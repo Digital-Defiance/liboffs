@@ -26,28 +26,41 @@ class iso _TestSection is UnitTest
 
       let path: FilePath = FilePath(t.env.root as AmbientAuth, "section1")?
       let section: Section[Nano] = Section[Nano](path, 20, 1)
-      let cb = {(index: Index iso) (t) =>
-        let cb ={() (t) =>
+      let cb = {(index: Index iso) (t, section) =>
+        let indexes : Array[USize] val = recover
+          let indexes' : Array[USize] = Array[USize](blocks.size())
+          let index': Index = consume index
+          try
+            for block in blocks.values() do
+              match index'.get(block.key)?
+                | None =>
+                  t.fail("Index error")
+                  t.complete(true)
+                | let indexEntry : IndexEntry =>
+                  indexes'.push(indexEntry.sectionIndex)
+              end
+            end
+          else
+            t.fail("Index error")
+            t.complete(true)
+          end
+           indexes'
+        end
+        let cb = {() (t) =>
           t.complete(true)
         } val
         let next = object is ReadNextLoop
           var _blocks: List[Block[Nano]] val = blocks
-          var _cb : {(Index iso)} val = cb
+          var _cb : {()} val = cb
           var _i: USize = 0
           var _section: Section[Nano] = section
           var _t: TestHelper = t
-          var _blockIndex: Index iso = consume index
+          var _indexes: Array[USize] val = indexes
 
           be apply() =>
-            if _i < _blocks.size() then
+            if _i < _indexes.size() then
               try
-                match _blockIndex.get(_blocks(_i = _i + 1)?.key)
-                  | None =>
-                    _t.fail("Index error")
-                    _t.complete(true)
-                  | let indexEntry: IndexEntry =>
-                    _section.read(indexEntry.sectionIndex, {(data: (Array[U8] val | SectionReadError)) (next : WriteNextLoop tag = this) => next.loop(data) })
-                end
+                _section.read(_indexes(_i = _i + 1)?, {(data: (Array[U8] val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
               else
                 _t.fail("block error")
                 _t.complete(true)
@@ -63,21 +76,10 @@ class iso _TestSection is UnitTest
                 _t.complete(true)
               | let data' : Array[U8] val =>
                 try
-                  let block: Block[Nano] = Block[Nano](data')
-                  t.assert_array_eq[U8](block.data, _blockIndex(_blocks(_i - 1)?.data))
-                  if _i < _blocks.size() then
-                    try
-                      match _blockIndex(_blocks(_i = _i + 1)?.key)
-                        | None =>
-                          _t.fail("Index error")
-                          _t.complete(true)
-                        | let indexEntry: IndexEntry =>
-                          _section.read(indexEntry.sectionIndex, {(data: (Array[U8] val | SectionReadError)) (next : WriteNextLoop tag = this) => next.loop(data) })
-                      end
-                    else
-                      _t.fail("block error")
-                      _t.complete(true)
-                    end
+                  if _i < _indexes.size() then
+                    let block: Block[Nano] = Block[Nano](data')?
+                    t.assert_array_eq[U8](block.data, _blocks(_i - 1)?.data)
+                    _section.read(_indexes(_i = _i + 1)?, {(data: (Array[U8] val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
                   else
                     _cb()
                   end
@@ -87,6 +89,7 @@ class iso _TestSection is UnitTest
                 end
             end
         end
+        next()
       } val
       let next = object is WriteNextLoop
         var _blocks: List[Block[Nano]] val = blocks

@@ -59,7 +59,7 @@ class IndexNode
     left = left'
     right = right'
 
-class Index
+class Index // BTree
   var _root: IndexNode
   let _bucketSize: USize
 
