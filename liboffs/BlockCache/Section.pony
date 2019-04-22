@@ -3,6 +3,7 @@ use "collections"
 
 primitive SectionReadError
 primitive SectionWriteError
+primitive SectionDeallocateError
 
 class Fragment
   var start: USize
@@ -23,33 +24,56 @@ actor Section [B: BlockType]
     _size = size
     id = id'
     let fragments: List[Fragment] = List[Fragment] (1)
-    fragments.push(Fragment(0, _size))
+    fragments.push(Fragment(0, _size - 1))
     _fragments = fragments
 
-  fun ref deallocate(index: USize) =>
+  be deallocate(index: USize, cb: {((None | SectionDeallocateError))} val) =>
     match _fragments
       | None =>
         let fragments: List[Fragment] = List[Fragment] (1)
-        fragments.push(Fragment(index, index))
+        fragments.push(Fragment(index, index + 1))
         _fragments = fragments
       | let fragments: List[Fragment] =>
-        var i: USize = 0
-        for frag in fragments.values() do
-          if (index > frag.start) then
-            if (index == (frag.start + 1)) then
-              frag.start = index
+        try
+          var i: USize = 0
+          let lastNode: ListNode[Fragment] = fragments.tail()?
+          var last: Fragment = lastNode()?
+          for frag in fragments.values() do
+            if (index == frag.finish) then //Someone tried to deallocate free space
+              cb(None)
+              return
+            elseif (index < frag.finish) then
+              if (index >= frag.start) then //Someone tried to deallocate free space
+                cb(None)
+                return
+              else
+                break
+              end
             else
-              let pt1: List[Fragment] = fragments.take(i)
-              pt1.push(Fragment(index,index))
-              let pt2 :List[Fragment] = fragments.drop(i)
-              pt1.concat(pt2.values())
-              _fragments = pt1
+              i  = i + 1
+              last = frag
             end
-            break
           end
-          i  = i + 1
+          if (index == (last.finish + 1)) then
+            if ((i < (fragments.size() - 1)) and (fragments(i + 1)?.start == (last.finish + 1))) then //join newly connected ranges
+              last.finish = fragments(i + 1)?.finish
+              fragments.remove(i + 1)?
+            else
+              last.finish = index
+            end
+          else
+            let pt1: List[Fragment] = fragments.take(i)
+            pt1.push(Fragment(index,index))
+            let pt2 :List[Fragment] = fragments.drop(i)
+            pt1.concat(pt2.values())
+            _fragments = pt1
+          end
+        else
+          cb(SectionDeallocateError)
+          return
         end
     end
+    cb(None)
   fun ref _nextIndex(): (USize val | None) ? =>
     match _fragments
       | None => None
