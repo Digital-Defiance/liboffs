@@ -51,7 +51,7 @@ class iso _TestSection is UnitTest
           end
            indexes'
         end
-        t.log("index size " + indexes.size().string())
+
         let cb = {() (t, section, indexes) =>
           let cb = {() (t, section, indexes) =>
             let cb = {() (t) =>
@@ -98,7 +98,6 @@ class iso _TestSection is UnitTest
                     _t.complete(true)
                   | let index': USize =>
                     try
-                      _t.log("index' " + index'.string() + " stored " + (_newId + 1).string())
                       _t.assert_true(index' == _indexes(_newId = _newId + 1)?)
                     else
                       _t.fail("block index error")
@@ -127,7 +126,6 @@ class iso _TestSection is UnitTest
             be apply() =>
               if _i < 6 then
                 try
-                  _t.log("deallocating " + _indexes(_i)?.string())
                   section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | SectionDeallocateError)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
                 else
                   _t.fail("Index Error")
@@ -144,7 +142,6 @@ class iso _TestSection is UnitTest
               end
               if _i < 6 then
                 try
-                  _t.log("deallocating " + _indexes(_i)?.string())
                   section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | SectionDeallocateError)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
                 else
                   _t.fail("Index Error")
