@@ -1,3 +1,4 @@
+use "json"
 primitive Fibonacci
   fun apply(num: U64) : U64 =>
     if ((num == 1) or (num == 0)) then
@@ -19,6 +20,18 @@ class FibonacciHitCounter
     _count = count'
     _threshold = Fibonacci(_fib)
 
+  new fromJSON(obj: JsonObject)? =>
+    _fib = (obj.data("fib")? as I64).u64()
+    _count = (obj.data("count")? as I64).u64()
+    _threshold = (obj.data("threshold")? as I64).u64()
+
+  fun toJSON(): JsonObject =>
+    let obj = JsonObject
+    obj.data("fib") = _fib.i64()
+    obj.data("count") = _count.i64()
+    obj.data("threshold") = _threshold.i64()
+    obj
+
   fun fib() : U64 val =>
     _fib
 
@@ -27,7 +40,7 @@ class FibonacciHitCounter
 
   fun threshold() : U64 val =>
     _threshold
-    
+
   fun ref increment() =>
     _count = _count + 1
     if (_count >= _threshold) then
