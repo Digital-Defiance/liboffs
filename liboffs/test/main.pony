@@ -10,8 +10,10 @@ actor Main is TestList
   fun tag tests(test: PonyTest) =>
     test(_TestFibonacci)
     test(_TestFibonacciHitCounter)
+    test(_TestFibonacciHitCounterJSON)
     test(_TestSHA2)
     test(_TestBlock)
     test(_TestBlockXOR)
     test(_TestIndex)
+    test(_TestIndexJSON)
     test(_TestSection)

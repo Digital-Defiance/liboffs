@@ -34,7 +34,7 @@ class iso _TestFibonacciHitCounter is UnitTest
     t.assert_false(counter2 > counter1)
     t.assert_false(counter2 != counter1)
 
-class iso _TestFibonacciHitCounterJSOB is UnitTest
+class iso _TestFibonacciHitCounterJSON is UnitTest
   fun name(): String => "Testing Fibonacci Hit Counter JSON"
   fun apply(t: TestHelper) =>
     let counter1 : FibonacciHitCounter = FibonacciHitCounter

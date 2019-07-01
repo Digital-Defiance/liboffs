@@ -1,5 +1,5 @@
 use "collections"
-
+use "json"
 primitive GetBit
   fun apply(data: ByteSeq, index: USize = 0) : Bool ? =>
     let byte: USize = index / 8 // which byte in the array
@@ -31,6 +31,20 @@ class IndexEntry
     sectionIndex = sectionIndex'
     hits = hits'
 
+  new fromJSON (obj: JsonObject)? =>
+    hits = FibonacciHitCounter.fromJSON(obj.data("hits")? as JsonObject)?
+    key = obj.data("key")? as String
+    sectionId = (obj.data("sectionId")? as I64).usize()
+    sectionIndex = (obj.data("sectionIndex")? as I64).usize()
+
+  fun toJSON (): JsonObject =>
+    let obj = JsonObject
+    obj.data("hits") = hits.toJSON()
+    obj.data("key") = key
+    obj.data("sectionIndex") = sectionIndex.i64()
+    obj.data("sectionId") = sectionId.i64()
+    obj
+
   fun box eq(that: box->IndexEntry): Bool =>
     hits == that.hits
 
@@ -59,7 +73,50 @@ class IndexNode
     left = left'
     right = right'
 
-class Index // BTree
+  new fromJSON(obj: JsonObject)? =>
+    bucket = match obj.data("bucket")?
+      | None => None
+      | let arr: JsonArray =>
+        let bucket' : List[IndexEntry] = List[IndexEntry]
+        for entry in arr.data.values() do
+          bucket'.push(IndexEntry.fromJSON(entry as JsonObject)?)
+        end
+        bucket'
+    end
+    left = match obj.data("left")?
+      | None => None
+      | let obj': JsonObject => IndexNode.fromJSON(obj')?
+      else
+        error
+    end
+    right = match obj.data("right")?
+      | None => None
+      | let obj': JsonObject => IndexNode.fromJSON(obj')?
+      else
+        error
+    end
+  fun ref toJSON () : JsonObject  =>
+    let obj = JsonObject
+    obj.data("bucket") = match bucket
+      | None => None
+      | let bucket': List[IndexEntry] =>
+          let data = Array[JsonType](bucket'.size())
+          for entry in bucket'.values() do
+            data.push(entry.toJSON())
+          end
+          JsonArray.from_array(data)
+    end
+    obj.data("left") = match left
+      | None => None
+      | let left': IndexNode => left'.toJSON()
+    end
+    obj.data("right") = match right
+      | None => None
+      | let right': IndexNode => right'.toJSON()
+    end
+    obj
+
+class Index
   var _root: IndexNode
   let _bucketSize: USize
 
@@ -70,6 +127,16 @@ class Index // BTree
   new from(root': IndexNode, bucketSize': USize) =>
     _root = root'
     _bucketSize = bucketSize'
+
+  new fromJSON (obj: JsonObject)? =>
+    _root = IndexNode.fromJSON(obj.data("root")? as JsonObject)?
+    _bucketSize = (obj.data("bucketSize")? as F64).usize()
+
+  fun ref toJSON(): JsonObject =>
+      let obj = JsonObject
+      obj.data("root") = _root.toJSON()
+      obj.data("bucketSize") = _bucketSize.f64()
+      obj
 
   fun ref add(entry: IndexEntry, node': (IndexNode| None) = None, index: USize = 0) ? =>
     let node: IndexNode = match node'
