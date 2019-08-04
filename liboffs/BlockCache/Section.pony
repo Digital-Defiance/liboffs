@@ -1,5 +1,6 @@
 use "files"
 use "collections"
+use "json"
 
 primitive SectionReadError
 primitive SectionWriteError
@@ -11,6 +12,16 @@ class Fragment
   new create(start': USize = 0, finish': USize = 0) =>
     start = start'
     finish = finish'
+  fun ref toJSON(): JsonObject =>
+    let obj = JsonObject
+    obj.data("start") = start.f64()
+    obj.data("finish") = finish.f64()
+    obj
+  new fromJSON(obj: JsonObject)? =>
+    start = (obj.data("start")? as I64).usize()
+    finish = (obj.data("finish")? as I64).usize()
+
+
 
 actor Section [B: BlockType]
   let id: USize
@@ -26,6 +37,36 @@ actor Section [B: BlockType]
     let fragments: List[Fragment] = List[Fragment] (1)
     fragments.push(Fragment(0, _size - 1))
     _fragments = fragments
+
+  new withFragments(path': FilePath, size: USize, id': USize = 0, array: JsonArray)? =>
+    _path = path'
+    _size = size
+    id = id'
+    fragmentsToJSON(array)?
+
+  fun ref _final() =>
+    close()
+
+  fun ref close() =>
+    match _file
+      | let file : File =>
+        file.dispose()
+        _file = None
+    end
+
+  fun ref fragmentsToJSON(): JsonArray =>
+    let data = Array[JsonType](_fragments.size())
+    for fragment in bucket'.values() do
+      data.push(fragment.toJSON())
+    end
+    JsonArray.from_array(data)
+
+  fun ref fragmentsFromJSON(array: JsonArray)? =>
+    let fragments': List[Fragment] = List[Fragment] (array.data.size())
+    for fragment in array.data.values() do
+      fragments'.push(Fragment.fromJSON(fragment as JsonObject)?)
+    end
+    _fragments = fragments'
 
   be deallocate(index: USize, cb: {((None | SectionDeallocateError))} val) =>
     match _fragments

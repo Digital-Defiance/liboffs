@@ -1,5 +1,7 @@
 use "collections"
 use "json"
+use "files"
+
 primitive GetBit
   fun apply(data: ByteSeq, index: USize = 0) : Bool ? =>
     let byte: USize = index / 8 // which byte in the array
@@ -119,24 +121,45 @@ class IndexNode
 class Index
   var _root: IndexNode
   let _bucketSize: USize
+  let _path: FilePath
 
-  new create(bucketSize': USize) =>
+  new create(bucketSize': USize, path': FilePath) =>
     _bucketSize = bucketSize'
     _root = IndexNode._create(List[IndexEntry](_bucketSize))
+    let path = FilePath(path', "index/index")?
+    path.mkdir()
+    _path = path
 
-  new from(root': IndexNode, bucketSize': USize) =>
+  new from(root': IndexNode, bucketSize': USize, path': FilePath) =>
     _root = root'
     _bucketSize = bucketSize'
+    let path = FilePath(path', "index/index")?
+    path.mkdir()
+    _path = path
 
-  new fromJSON (obj: JsonObject)? =>
+  new fromJSON(obj: JsonObject, path': FilePath)? =>
     _root = IndexNode.fromJSON(obj.data("root")? as JsonObject)?
     _bucketSize = (obj.data("bucketSize")? as F64).usize()
+    let path = FilePath(path', "index/index")?
+    path.mkdir()
+    _path = path
 
   fun ref toJSON(): JsonObject =>
       let obj = JsonObject
       obj.data("root") = _root.toJSON()
       obj.data("bucketSize") = _bucketSize.f64()
       obj
+
+  fun save() =>
+    let index: Index = this
+    let obj: JsonObject = _index.toJSON()
+    let doc: JsonDoc = JsonDoc
+    doc.data = obj
+    match CreateFile(_path)
+      | let file: File =>
+        file.write(doc.string())
+        file.dispose()
+    end
 
   fun ref add(entry: IndexEntry, node': (IndexNode| None) = None, index: USize = 0) ? =>
     let node: IndexNode = match node'
@@ -165,6 +188,7 @@ class Index
           add(entry, node, index)?
         end
     end
+    save()
 
     fun ref get(key: String val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
       let node : IndexNode = match node'
@@ -186,6 +210,7 @@ class Index
           end
           None
       end
+      save()
 
   fun ref remove(key: String val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
     let node : IndexNode = match node'
@@ -209,6 +234,7 @@ class Index
           end
         end
     end
+    save()
 
     fun ref _split(node: IndexNode, index: USize) ? =>
       match node.bucket
