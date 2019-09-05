@@ -4,7 +4,7 @@ use "collections"
 use "files"
 
 interface WriteNextLoop
-  be loop(index: (USize | SectionWriteError))
+  be loop(index: ((USize, Bool) | SectionWriteError))
   be apply()
 
 interface ReadNextLoop
@@ -29,15 +29,18 @@ class iso _TestSection is UnitTest
       end
 
 
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "section1")?
-      let section: Section[Nano] = Section[Nano](path, 20, 1)
+      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/data/")?
+      let metaPath: FilePath = FilePath(t.env.root as AmbientAuth, "offs/meta/")?
+      path.mkdir()
+      metaPath.mkdir()
+      let section: Section[Nano] = Section[Nano](path, metaPath, 20, 1)
       let cb = {(index: Index iso) (t, section) =>
         let indexes : Array[USize] val = recover
           let indexes' : Array[USize] = Array[USize](blocks.size())
           let index': Index = consume index
           try
             for block in blocks.values() do
-              match index'.get(block.key)?
+              match index'.find(block.hash)?
                 | None =>
                   t.fail("Index error")
                   t.complete(true)
@@ -83,7 +86,7 @@ class iso _TestSection is UnitTest
               be apply() =>
                 if _i < _blocks.size() then
                   try
-                    _section.write(_blocks(_i = _i + 1)?, {(index: (USize | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                    _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                   else
                     _t.fail("block error")
                     _t.complete(true)
@@ -91,12 +94,12 @@ class iso _TestSection is UnitTest
                 else
                   _cb()
                 end
-              be loop(index: (USize | SectionWriteError)) =>
+              be loop(index: ((USize, Bool) | SectionWriteError)) =>
                 match index
                   | SectionWriteError =>
                     _t.fail("SectionWriteError")
                     _t.complete(true)
-                  | let index': USize =>
+                  | (let index': USize,  let full: Bool) =>
                     try
                       _t.assert_true(index' == _indexes(_newId = _newId + 1)?)
                     else
@@ -105,7 +108,7 @@ class iso _TestSection is UnitTest
                     end
                     if _i < _blocks.size() then
                       try
-                        _section.write(_blocks(_i = _i + 1)?, {(index: (USize | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                        _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                       else
                         _t.fail("block error")
                         _t.complete(true)
@@ -201,40 +204,40 @@ class iso _TestSection is UnitTest
         var _i: USize = 0
         var _section: Section[Nano] = section
         var _t: TestHelper = t
-        var _blockIndex: Index iso = recover Index(5) end
+        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
         be apply() =>
           if _i < _blocks.size() then
             try
-              _section.write(_blocks(_i = _i + 1)?, {(index: (USize | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+              _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
             else
               _t.fail("block error")
               _t.complete(true)
             end
           else
-            let index'' : Index iso = _blockIndex = recover Index(5) end
+            let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
             _cb(consume index'')
           end
-        be loop(index: (USize | SectionWriteError)) =>
+        be loop(index: ((USize, Bool) | SectionWriteError)) =>
           match index
             | SectionWriteError =>
               _t.fail("SectionWriteError")
               _t.complete(true)
-            | let index': USize =>
+            | (let index': USize, let full: Bool) =>
               try
-                _blockIndex.add(recover iso IndexEntry(_blocks(_i - 1)?.key, 1, index') end)?
+                _blockIndex.add(recover iso IndexEntry(_blocks(_i - 1)?.hash, 1, index') end)?
               else
                 _t.fail("block index error")
                 _t.complete(true)
               end
               if _i < _blocks.size() then
                 try
-                  _section.write(_blocks(_i = _i + 1)?, {(index: (USize | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                  _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
                   _t.fail("block error")
                   _t.complete(true)
                 end
               else
-                let index'' : Index iso = _blockIndex = recover Index(5) end
+                let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
                 _cb(consume index'')
               end
           end

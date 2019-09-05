@@ -14,35 +14,67 @@ primitive GetBit
       false
     end
 
+primitive U8ArrayEqual
+  fun apply(a: Array[U8] val, b: Array[U8] val) : Bool =>
+    try
+      if (a.size() != b.size()) then
+        return false
+      end
+      for i in Range(0, a.size()) do
+        if a(i)? != b(i)? then
+          return false
+        end
+      end
+      true
+    else
+      false
+    end
 
+primitive U8ArrayToJson
+  fun apply(data: Array[U8] val) : JsonArray =>
+    let array: Array[F64] = Array[F64](data.size())
+    for value in data.values() do
+      array.push(value.f64())
+    end
+    JsonArray.from_array(array)
+
+primitive U8ArrayFromJson
+  fun apply(array: JsonArray val): Array[U8] val ? =>
+    recover
+      let data: Array[U8] ref = Array[U8](array.data.size())
+      for value in array.data.values() do
+        data.push((value as F64).u8())
+      end
+      data
+    end
 class IndexEntry
   let hits: FibonacciHitCounter ref
-  let key: String val
-  var sectionId: USize val
-  var sectionIndex: USize val
+  let hash: Array[U8] val
+  var sectionId: USize
+  var sectionIndex: USize
 
-  new create(key': String val, sectionId': USize val, sectionIndex': USize val) =>
-    key = key'
+  new create(hash': Array[U8] val, sectionId': USize = 0, sectionIndex': USize = 0) =>
+    hash = hash'
     sectionId = sectionId'
     sectionIndex = sectionIndex'
     hits = FibonacciHitCounter
 
-  new from(key': String val, sectionId': USize val, sectionIndex': USize val, hits': FibonacciHitCounter) =>
-    key = key'
+  new from(hash': String val, sectionId': USize, sectionIndex': USize, hits': FibonacciHitCounter) =>
+    hash = hash'
     sectionId = sectionId'
     sectionIndex = sectionIndex'
     hits = hits'
 
-  new fromJSON (obj: JsonObject)? =>
+  new fromJSON (obj: JsonObject val)? =>
     hits = FibonacciHitCounter.fromJSON(obj.data("hits")? as JsonObject)?
-    key = obj.data("key")? as String
+    hash = U8ArrayFromJson(obj.data("hash")? as JsonArray)
     sectionId = (obj.data("sectionId")? as I64).usize()
     sectionIndex = (obj.data("sectionIndex")? as I64).usize()
 
   fun toJSON (): JsonObject =>
     let obj = JsonObject
     obj.data("hits") = hits.toJSON()
-    obj.data("key") = key
+    obj.data("hash") = U8ArrayToJson(hash)
     obj.data("sectionIndex") = sectionIndex.i64()
     obj.data("sectionId") = sectionId.i64()
     obj
@@ -78,10 +110,10 @@ class IndexNode
   new fromJSON(obj: JsonObject)? =>
     bucket = match obj.data("bucket")?
       | None => None
-      | let arr: JsonArray =>
+      | let arr: JsonArray val =>
         let bucket' : List[IndexEntry] = List[IndexEntry]
         for entry in arr.data.values() do
-          bucket'.push(IndexEntry.fromJSON(entry as JsonObject)?)
+          bucket'.push(IndexEntry.fromJSON(entry as JsonObject val)?)
         end
         bucket'
     end
@@ -123,12 +155,24 @@ class Index
   let _bucketSize: USize
   let _path: FilePath
 
-  new create(bucketSize': USize, path': FilePath) =>
+  new create(bucketSize': USize, path': FilePath)? =>
     _bucketSize = bucketSize'
     _root = IndexNode._create(List[IndexEntry](_bucketSize))
-    let path = FilePath(path', "index/index")?
+    let path = FilePath(path', "index/.index")?
     path.mkdir()
     _path = path
+
+    match OpenFile(_path)
+      | let indexFile: File =>
+        let obj: JsonObject val = recover
+          let text: String = indexFile.read_string(indexFile.size())
+          let doc: JsonDoc = JsonDoc
+          doc.parse(text)
+          doc.data as JsonObject
+        end
+        _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
+    end
+
 
   new from(root': IndexNode, bucketSize': USize, path': FilePath) =>
     _root = root'
@@ -151,8 +195,7 @@ class Index
       obj
 
   fun save() =>
-    let index: Index = this
-    let obj: JsonObject = _index.toJSON()
+    let obj: JsonObject = toJSON()
     let doc: JsonDoc = JsonDoc
     doc.data = obj
     match CreateFile(_path)
@@ -168,14 +211,14 @@ class Index
     end
     match node.bucket
       | None => // this is an internal Node
-        if GetBit(entry.key, index + 1)? then
+        if GetBit(entry.hash, index + 1)? then
           add(entry, node.right, index + 1)?
         else
           add(entry, node.left, index + 1)?
         end
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
-          if (entry.key == entry'.key) then //Update
+          if U8ArrayEqual(entry.hash, entry'.hash) then //Update
             entry'.hits.increment() // TODO Should I even have and update!?
             return
           end
@@ -188,53 +231,75 @@ class Index
           add(entry, node, index)?
         end
     end
-    save()
 
-    fun ref get(key: String val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
-      let node : IndexNode = match node'
-        | None => _root
-        | let node: IndexNode => node
-      end
-      match node.bucket
-        | None =>
-          if GetBit(key, index + 1)? then
-            get(key, node.right, index + 1)?
-          else
-            get(key, node.left, index + 1)?
-          end
-        | let bucket': List[IndexEntry] =>
-          for entry' in bucket'.values() do
-            if (key == entry'.key) then
-              return entry'
-            end
-          end
-          None
-      end
-      save()
-
-  fun ref remove(key: String val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
+  fun ref get(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0): IndexEntry ? =>
     let node : IndexNode = match node'
       | None => _root
       | let node: IndexNode => node
     end
     match node.bucket
       | None =>
-        if GetBit(key, index + 1)? then
-          remove(key, node.right, index + 1)?
+        if GetBit(hash, index + 1)? then
+          get(hash, node.right, index + 1)?
         else
-          remove(key, node.left, index + 1)?
+          get(hash, node.left, index + 1)?
+        end
+      | let bucket': List[IndexEntry] =>
+        for entry' in bucket'.values() do
+          if U8ArrayEqual(hash, entry'.hash) then
+            entry'.hits.increment()
+            return entry'
+          end
+        end
+        let entry: IndexEntry = IndexEntry(hash)
+        node.add(entry, node', index)
+        return entry
+    end
+
+  fun ref find(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
+    let node : IndexNode = match node'
+      | None => _root
+      | let node: IndexNode => node
+    end
+    match node.bucket
+      | None =>
+        if GetBit(hash, index + 1)? then
+          find(hash, node.right, index + 1)?
+        else
+          find(hash, node.left, index + 1)?
+        end
+      | let bucket': List[IndexEntry] =>
+        for entry' in bucket'.values() do
+          if U8ArrayEqual(hash, entry'.hash) then
+            entry'.hits.increment()
+            return entry'
+          end
+        end
+        None
+    end
+
+  fun ref remove(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0) ? =>
+    let node : IndexNode = match node'
+      | None => _root
+      | let node: IndexNode => node
+    end
+    match node.bucket
+      | None =>
+        if GetBit(hash, index + 1)? then
+          remove(hash, node.right, index + 1)?
+        else
+          remove(hash, node.left, index + 1)?
         end
       | let bucket': List[IndexEntry] =>
         var i : USize = - 1
         for entry' in bucket'.values() do
           i = i + 1
-          if (key == entry'.key) then
+          if U8ArrayEqual(hash, entry'.hash) then
             bucket'.remove(i)?
             break
           end
         end
     end
-    save()
 
     fun ref _split(node: IndexNode, index: USize) ? =>
       match node.bucket

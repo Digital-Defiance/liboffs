@@ -37,7 +37,6 @@ primitive RandomBytes
 class val Block [B: BlockType]
   let hash: Array[U8] val
   let data: Array[U8] val
-  let key: String val
 
   new val create(data': Array[U8] val = [])? =>
     let diff = BlockSize[B]() - data'.size()
@@ -57,12 +56,13 @@ class val Block [B: BlockType]
     end
 
     hash = SHA2Hash(data, 34)
-    key = recover val Base58.encode(hash)? end
 
-  new _withHash(data': Array[U8] val, hash': Array[U8] val, key': String val) =>
+  new _withHash(data': Array[U8] val, hash': Array[U8] val) =>
     data = data'
     hash = hash'
-    key = key'
+
+  fun key(): String val =>
+    recover val Base58.encode(hash)? end
 
   fun size(): USize =>
     data.size()

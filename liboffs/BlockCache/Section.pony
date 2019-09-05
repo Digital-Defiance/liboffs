@@ -1,6 +1,7 @@
 use "files"
 use "collections"
 use "json"
+use "time"
 
 primitive SectionReadError
 primitive SectionWriteError
@@ -26,25 +27,47 @@ class Fragment
 actor Section [B: BlockType]
   let id: USize
   var _file: (File | None) = None
+  let _metaPath: FilePath
   var _path: FilePath
   var _size: USize
   var _fragments: (List[Fragment] | None) = None
-
-  new create(path': FilePath, size: USize, id': USize = 0) =>
+  var _saver: (Timer | None) = None
+  let _timers: Timers = Timers
+  new create(path': FilePath, metaPath: FilePath, size: USize, id': USize = 0) =>
     _path = path'
     _size = size
     id = id'
-    let fragments: List[Fragment] = List[Fragment] (1)
-    fragments.push(Fragment(0, _size - 1))
-    _fragments = fragments
+    _metaPath = FilePath(metaPath, id.string())
 
-  new withFragments(path': FilePath, size: USize, id': USize = 0, array: JsonArray)? =>
-    _path = path'
-    _size = size
-    id = id'
-    fragmentsToJSON(array)?
+    try
+      match OpenFile(_metaPath)
+        | let metaFile: File =>
+          let text: String = metaFile.read_string(metaFile.size())
+          let doc: JsonDoc = JsonDoc
+          doc.parse(text)
+          let array: JsonArray = doc.data as JsonArray
+          if array.data.size() > 0 then
+            let fragments': List[Fragment] = List[Fragment] (array.data.size())
+            for fragment in array.data.values() do
+              fragments'.push(Fragment.fromJSON(fragment as JsonObject)?)
+            end
+            _fragments = fragments'
+          else
+            _fragments = None
+          end
+        else
+          let fragments: List[Fragment] = List[Fragment] (1)
+          fragments.push(Fragment(0, _size - 1))
+          _fragments = fragments
+      end
+    else
+      let fragments: List[Fragment] = List[Fragment] (1)
+      fragments.push(Fragment(0, _size - 1))
+      _fragments = fragments
+    end
 
   fun ref _final() =>
+    _saveFragments()
     close()
 
   fun ref close() =>
@@ -54,19 +77,24 @@ actor Section [B: BlockType]
         _file = None
     end
 
-  fun ref fragmentsToJSON(): JsonArray =>
-    let data = Array[JsonType](_fragments.size())
-    for fragment in bucket'.values() do
-      data.push(fragment.toJSON())
+  fun ref _saveFragments(): JsonArray =>
+    let arr: JsonArray =  match _fragments
+      | let fragments: List[Fragment] =>
+        let data = Array[JsonType](_fragments.size())
+        for fragment in fragments.values() do
+          data.push(fragment.toJSON())
+        end
+        JsonArray.from_array(data)
+      | None =>
+        JsonArray.from_array(Array[JsonType](0))
     end
-    JsonArray.from_array(data)
-
-  fun ref fragmentsFromJSON(array: JsonArray)? =>
-    let fragments': List[Fragment] = List[Fragment] (array.data.size())
-    for fragment in array.data.values() do
-      fragments'.push(Fragment.fromJSON(fragment as JsonObject)?)
+    let doc: JsonDoc= JsonDoc()
+    doc.data = arr
+    match CreateFile(_metaPath)
+      | let file: File =>
+        file.write(doc.string())
+        file.dispose()
     end
-    _fragments = fragments'
 
   be deallocate(index: USize, cb: {((None | SectionDeallocateError))} val) =>
     match _fragments
@@ -82,13 +110,13 @@ actor Section [B: BlockType]
           for frag in fragments.values() do
             if (index == frag.finish) then //Someone tried to deallocate free space
               cb(None)
+              _save()
               return
             elseif (index < frag.finish) then
               if (index >= frag.start) then //Someone tried to deallocate free space
                 cb(None)
+                _save()
                 return
-              else
-                break
               end
             else
               i  = i + 1
@@ -115,6 +143,8 @@ actor Section [B: BlockType]
         end
     end
     cb(None)
+    _save()
+
   fun ref _nextIndex(): (USize val | None) ? =>
     match _fragments
       | None => None
@@ -143,7 +173,10 @@ actor Section [B: BlockType]
         end
     end
 
-  be write(block: Block[B], cb: {((USize | SectionWriteError))} val) =>
+  fun full(): Bool =>
+      _fragments == None
+
+  be write(block: Block[B], cb: {(((USize, Bool) | SectionWriteError))} val) =>
     match try _nextIndex()? else None end
       | None =>
         cb(SectionWriteError)
@@ -167,7 +200,8 @@ actor Section [B: BlockType]
             file'.seek(byte)
             let ok = file'.write(block.data)
             if (ok) then
-              cb(index)
+              cb((index, full()))
+              _save()
             else
               cb(SectionWriteError)
             end
@@ -194,3 +228,22 @@ actor Section [B: BlockType]
         let data: Array[U8] val = file'.read(BlockSize[B]())
         cb(data)
     end
+  fun ref _save() =>
+    match _saver
+      | let saver : Timer =>
+        _timers.cancel(saver)
+    end
+    let saver: SectionSaver iso = SectionSaver({() =>
+      _saveFragments()
+    } val)
+    let timer = Timer(saver, 250000, 250000)
+    _saver = timer
+    _timers(consume timer)
+
+class SectionSaver is TimerNotify
+  let _cb: {()} val
+  new iso create(cb: {()} val) =>
+    _cb = cb
+  fun apply(timer: Timer, count: U64): Bool =>
+    _cb()
+    false
