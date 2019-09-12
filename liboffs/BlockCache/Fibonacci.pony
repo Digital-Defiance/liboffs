@@ -20,7 +20,7 @@ class FibonacciHitCounter
     _count = count'
     _threshold = Fibonacci(_fib)
 
-  new fromJSON(obj: JsonObject)? =>
+  new fromJSON(obj: JsonObject val)? =>
     _fib = (obj.data("fib")? as I64).u64()
     _count = (obj.data("count")? as I64).u64()
     _threshold = (obj.data("threshold")? as I64).u64()

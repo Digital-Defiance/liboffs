@@ -32,7 +32,7 @@ primitive U8ArrayEqual
 
 primitive U8ArrayToJson
   fun apply(data: Array[U8] val) : JsonArray =>
-    let array: Array[F64] = Array[F64](data.size())
+    let array: Array[JsonType] = Array[JsonType](data.size())
     for value in data.values() do
       array.push(value.f64())
     end
@@ -59,15 +59,15 @@ class IndexEntry
     sectionIndex = sectionIndex'
     hits = FibonacciHitCounter
 
-  new from(hash': String val, sectionId': USize, sectionIndex': USize, hits': FibonacciHitCounter) =>
+  new from(hash': Array[U8] val, sectionId': USize, sectionIndex': USize, hits': FibonacciHitCounter) =>
     hash = hash'
     sectionId = sectionId'
     sectionIndex = sectionIndex'
     hits = hits'
 
   new fromJSON (obj: JsonObject val)? =>
-    hits = FibonacciHitCounter.fromJSON(obj.data("hits")? as JsonObject)?
-    hash = U8ArrayFromJson(obj.data("hash")? as JsonArray)
+    hits = FibonacciHitCounter.fromJSON(obj.data("hits")? as JsonObject val)?
+    hash = U8ArrayFromJson(obj.data("hash")? as JsonArray val)?
     sectionId = (obj.data("sectionId")? as I64).usize()
     sectionIndex = (obj.data("sectionIndex")? as I64).usize()
 
@@ -107,7 +107,7 @@ class IndexNode
     left = left'
     right = right'
 
-  new fromJSON(obj: JsonObject)? =>
+  new fromJSON(obj: JsonObject val)? =>
     bucket = match obj.data("bucket")?
       | None => None
       | let arr: JsonArray val =>
@@ -119,13 +119,13 @@ class IndexNode
     end
     left = match obj.data("left")?
       | None => None
-      | let obj': JsonObject => IndexNode.fromJSON(obj')?
+      | let obj': JsonObject val => IndexNode.fromJSON(obj')?
       else
         error
     end
     right = match obj.data("right")?
       | None => None
-      | let obj': JsonObject => IndexNode.fromJSON(obj')?
+      | let obj': JsonObject val => IndexNode.fromJSON(obj')?
       else
         error
     end
@@ -166,35 +166,34 @@ class Index
       | let indexFile: File =>
         let obj: JsonObject val = recover
           let text: String = indexFile.read_string(indexFile.size())
-          let doc: JsonDoc = JsonDoc
-          doc.parse(text)
-          doc.data as JsonObject
+          let doc: JsonDoc val = recover val JsonDoc.>parse(text)? end
+          doc.data as JsonObject val
         end
         _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
     end
 
 
-  new from(root': IndexNode, bucketSize': USize, path': FilePath) =>
+  new from(root': IndexNode, bucketSize': USize, path': FilePath)? =>
     _root = root'
     _bucketSize = bucketSize'
     let path = FilePath(path', "index/index")?
     path.mkdir()
     _path = path
 
-  new fromJSON(obj: JsonObject, path': FilePath)? =>
-    _root = IndexNode.fromJSON(obj.data("root")? as JsonObject)?
+  new fromJSON(obj: JsonObject val, path': FilePath)? =>
+    _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
     _bucketSize = (obj.data("bucketSize")? as F64).usize()
     let path = FilePath(path', "index/index")?
     path.mkdir()
     _path = path
 
   fun ref toJSON(): JsonObject =>
-      let obj = JsonObject
-      obj.data("root") = _root.toJSON()
-      obj.data("bucketSize") = _bucketSize.f64()
-      obj
+    let obj = JsonObject
+    obj.data("root") = _root.toJSON()
+    obj.data("bucketSize") = _bucketSize.f64()
+    obj
 
-  fun save() =>
+  fun ref save() =>
     let obj: JsonObject = toJSON()
     let doc: JsonDoc = JsonDoc
     doc.data = obj
@@ -252,7 +251,7 @@ class Index
           end
         end
         let entry: IndexEntry = IndexEntry(hash)
-        node.add(entry, node', index)
+        add(entry, node', index)?
         return entry
     end
 

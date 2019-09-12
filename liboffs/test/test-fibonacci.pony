@@ -48,16 +48,14 @@ class iso _TestFibonacciHitCounterJSON is UnitTest
     try
       let doc1 = JsonDoc
       doc1.data = counter1.toJSON()
-      let doc3 = JsonDoc
-      doc3.parse(doc1.string())?
+      let doc3: JsonDoc val = recover val JsonDoc.>parse(doc1.string())? end
 
       let doc2 = JsonDoc
       doc2.data = counter2.toJSON()
-      let doc4 = JsonDoc
-      doc4.parse(doc2.string())?
+      let doc4: JsonDoc val = recover val JsonDoc.>parse(doc2.string())? end
 
-      let counter3 : FibonacciHitCounter = FibonacciHitCounter.fromJSON(doc3.data as JsonObject)?
-      let counter4 : FibonacciHitCounter = FibonacciHitCounter.fromJSON(doc4.data as JsonObject)?
+      let counter3 : FibonacciHitCounter = FibonacciHitCounter.fromJSON(doc3.data as JsonObject val)?
+      let counter4 : FibonacciHitCounter = FibonacciHitCounter.fromJSON(doc4.data as JsonObject val)?
 
       t.assert_true(counter1 == counter3)
       t.assert_true(counter2 == counter4)

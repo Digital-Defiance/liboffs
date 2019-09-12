@@ -204,18 +204,18 @@ class iso _TestSection is UnitTest
         var _i: USize = 0
         var _section: Section[Nano] = section
         var _t: TestHelper = t
-        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
+        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?)? end
         be apply() =>
-          if _i < _blocks.size() then
-            try
+          try
+            if _i < _blocks.size() then
               _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
             else
-              _t.fail("block error")
-              _t.complete(true)
+              let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?)? end
+              _cb(consume index'')
             end
           else
-            let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
-            _cb(consume index'')
+            _t.fail("block error")
+            _t.complete(true)
           end
         be loop(index: ((USize, Bool) | SectionWriteError)) =>
           match index
@@ -229,16 +229,16 @@ class iso _TestSection is UnitTest
                 _t.fail("block index error")
                 _t.complete(true)
               end
-              if _i < _blocks.size() then
-                try
+              try
+                if _i < _blocks.size() then
                   _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
-                  _t.fail("block error")
-                  _t.complete(true)
+                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?)? end
+                  _cb(consume index'')
                 end
               else
-                let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/")?) end
-                _cb(consume index'')
+                _t.fail("block error")
+                _t.complete(true)
               end
           end
       end

@@ -27,24 +27,25 @@ class Fragment
 actor Section [B: BlockType]
   let id: USize
   var _file: (File | None) = None
-  let _metaPath: FilePath
+  var _metaPath: (FilePath | None) = None
   var _path: FilePath
   var _size: USize
   var _fragments: (List[Fragment] | None) = None
-  var _saver: (Timer | None) = None
+  var _saver: (Timer iso! | None) = None
   let _timers: Timers = Timers
+
   new create(path': FilePath, metaPath: FilePath, size: USize, id': USize = 0) =>
     _path = path'
     _size = size
     id = id'
-    _metaPath = FilePath(metaPath, id.string())
 
     try
-      match OpenFile(_metaPath)
+      _metaPath = FilePath(metaPath, id.string())?
+      match OpenFile(_metaPath as FilePath)
         | let metaFile: File =>
           let text: String = metaFile.read_string(metaFile.size())
           let doc: JsonDoc = JsonDoc
-          doc.parse(text)
+          doc.parse(text)?
           let array: JsonArray = doc.data as JsonArray
           if array.data.size() > 0 then
             let fragments': List[Fragment] = List[Fragment] (array.data.size())
@@ -66,21 +67,13 @@ actor Section [B: BlockType]
       _fragments = fragments
     end
 
-  fun ref _final() =>
-    _saveFragments()
-    close()
+  //fun _final() =>
 
-  fun ref close() =>
-    match _file
-      | let file : File =>
-        file.dispose()
-        _file = None
-    end
 
-  fun ref _saveFragments(): JsonArray =>
+  be _saveFragments() =>
     let arr: JsonArray =  match _fragments
       | let fragments: List[Fragment] =>
-        let data = Array[JsonType](_fragments.size())
+        let data = Array[JsonType](fragments.size())
         for fragment in fragments.values() do
           data.push(fragment.toJSON())
         end
@@ -88,12 +81,15 @@ actor Section [B: BlockType]
       | None =>
         JsonArray.from_array(Array[JsonType](0))
     end
-    let doc: JsonDoc= JsonDoc()
+    let doc: JsonDoc= JsonDoc
     doc.data = arr
-    match CreateFile(_metaPath)
-      | let file: File =>
-        file.write(doc.string())
-        file.dispose()
+    match _metaPath
+      | let metaPath: FilePath =>
+        match CreateFile(metaPath)
+          | let file: File =>
+            file.write(doc.string())
+            file.dispose()
+        end
     end
 
   be deallocate(index: USize, cb: {((None | SectionDeallocateError))} val) =>
@@ -174,7 +170,11 @@ actor Section [B: BlockType]
     end
 
   fun full(): Bool =>
-      _fragments == None
+    match _fragments
+    | None => true
+    else
+      false
+    end
 
   be write(block: Block[B], cb: {(((USize, Bool) | SectionWriteError))} val) =>
     match try _nextIndex()? else None end
@@ -230,13 +230,13 @@ actor Section [B: BlockType]
     end
   fun ref _save() =>
     match _saver
-      | let saver : Timer =>
+    | let saver : Timer iso! =>
         _timers.cancel(saver)
     end
-    let saver: SectionSaver iso = SectionSaver({() =>
-      _saveFragments()
+    let saver: SectionSaver iso = SectionSaver({() (section: Section[B] = this)=>
+      section._saveFragments()
     } val)
-    let timer = Timer(saver, 250000, 250000)
+    let timer = Timer(consume saver, 250000, 250000)
     _saver = timer
     _timers(consume timer)
 

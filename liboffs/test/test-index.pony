@@ -2,6 +2,7 @@ use "ponytest"
 use "../BlockCache"
 use "collections"
 use "files"
+use "json"
 
 class iso _TestIndex is UnitTest
   fun name(): String => "Testing Index Creation"
@@ -16,7 +17,7 @@ class iso _TestIndex is UnitTest
       let indexEntry2: IndexEntry = IndexEntry(block2.hash, 1, 1)
       let indexEntry3: IndexEntry = IndexEntry(block3.hash, 1, 2)
       let indexEntry4: IndexEntry = IndexEntry(block4.hash, 1, 3)
-      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)
+      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)?
       blockIndex.add(indexEntry1)?
       blockIndex.add(indexEntry2)?
       blockIndex.add(indexEntry3)?
@@ -51,12 +52,17 @@ class iso _TestIndexJSON is UnitTest
       let indexEntry2: IndexEntry = IndexEntry(block2.hash, 1, 1)
       let indexEntry3: IndexEntry = IndexEntry(block3.hash, 1, 2)
       let indexEntry4: IndexEntry = IndexEntry(block4.hash, 1, 3)
-      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)
+      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)?
       blockIndex.add(indexEntry1)?
       blockIndex.add(indexEntry2)?
       blockIndex.add(indexEntry3)?
       blockIndex.add(indexEntry4)?
-      let blockIndex2: Index = Index.fromJSON(blockIndex.toJSON(), path)?
+
+      let doc = JsonDoc
+      doc.data = blockIndex.toJSON()
+      let text: String val = doc.string()
+      let doc2: JsonDoc val = recover val JsonDoc.>parse(text)? end
+      let blockIndex2: Index = Index.fromJSON((doc2.data as JsonObject val), path)?
       t.assert_true(blockIndex2.size() == 4)
       let list: List[IndexEntry] = blockIndex2.list()
       t.assert_true(list.contains(indexEntry1))

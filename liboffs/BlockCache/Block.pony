@@ -57,11 +57,11 @@ class val Block [B: BlockType]
 
     hash = SHA2Hash(data, 34)
 
-  new _withHash(data': Array[U8] val, hash': Array[U8] val) =>
+  new val _withHash(data': Array[U8] val, hash': Array[U8] val) =>
     data = data'
     hash = hash'
 
-  fun key(): String val =>
+  fun key(): String val ? =>
     recover val Base58.encode(hash)? end
 
   fun size(): USize =>

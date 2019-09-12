@@ -7,6 +7,10 @@
     {
       "type": "github",
       "repo": "vijayee/LRUCache"
+    },
+    {
+      "type": "github",
+      "repo": "ponylang/Crypto"
     }
   ]
 }
