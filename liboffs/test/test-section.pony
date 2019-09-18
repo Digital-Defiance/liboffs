@@ -33,7 +33,11 @@ class iso _TestSection is UnitTest
       let metaPath: FilePath = FilePath(t.env.root as AmbientAuth, "offs/meta/")?
       path.mkdir()
       metaPath.mkdir()
-      let section: Section[Nano] = Section[Nano](path, metaPath, 20, 1)
+
+      let metaDir = Directory(metaPath)?
+      metaDir.remove("4000")
+
+      let section: Section[Nano] = Section[Nano](path, metaPath, 20, 4000)
       let cb = {(index: Index iso) (t, section) =>
         let indexes : Array[USize] val = recover
           let indexes' : Array[USize] = Array[USize](blocks.size())
@@ -97,7 +101,7 @@ class iso _TestSection is UnitTest
               be loop(index: ((USize, Bool) | SectionWriteError)) =>
                 match index
                   | SectionWriteError =>
-                    _t.fail("SectionWriteError")
+                    _t.fail("SectionWriteError" + _i.string())
                     _t.complete(true)
                   | (let index': USize,  let full: Bool) =>
                     try
@@ -220,7 +224,7 @@ class iso _TestSection is UnitTest
         be loop(index: ((USize, Bool) | SectionWriteError)) =>
           match index
             | SectionWriteError =>
-              _t.fail("SectionWriteError")
+              _t.fail("SectionWriteError this one")
               _t.complete(true)
             | (let index': USize, let full: Bool) =>
               try

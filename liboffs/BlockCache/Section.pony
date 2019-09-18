@@ -2,6 +2,7 @@ use "files"
 use "collections"
 use "json"
 use "time"
+use "ponytest"
 
 primitive SectionReadError
 primitive SectionWriteError
@@ -13,7 +14,7 @@ class Fragment
   new create(start': USize = 0, finish': USize = 0) =>
     start = start'
     finish = finish'
-  fun ref toJSON(): JsonObject =>
+  fun toJSON(): JsonObject =>
     let obj = JsonObject
     obj.data("start") = start.f64()
     obj.data("finish") = finish.f64()
@@ -28,18 +29,18 @@ actor Section [B: BlockType]
   let id: USize
   var _file: (File | None) = None
   var _metaPath: (FilePath | None) = None
-  var _path: FilePath
+  var _path: (FilePath | None) = None
   var _size: USize
   var _fragments: (List[Fragment] | None) = None
   var _saver: (Timer iso! | None) = None
   let _timers: Timers = Timers
 
   new create(path': FilePath, metaPath: FilePath, size: USize, id': USize = 0) =>
-    _path = path'
     _size = size
     id = id'
 
     try
+      _path = FilePath(path', id.string())?
       _metaPath = FilePath(metaPath, id.string())?
       match OpenFile(_metaPath as FilePath)
         | let metaFile: File =>
@@ -87,7 +88,9 @@ actor Section [B: BlockType]
       | let metaPath: FilePath =>
         match CreateFile(metaPath)
           | let file: File =>
-            file.write(doc.string())
+            let text = doc.string()
+            file.set_length(text.size())
+            file.write(text)
             file.dispose()
         end
     end
@@ -183,7 +186,7 @@ actor Section [B: BlockType]
       | let index : USize =>
         let file: (File | SectionWriteError) = match _file
           | None =>
-            match CreateFile(_path)
+            match try CreateFile(_path as FilePath) else FileError end
               | let file': File => file'
               | FileError =>
                 SectionWriteError
@@ -211,7 +214,7 @@ actor Section [B: BlockType]
   be read(index: USize, cb: {((Array[U8] val | SectionReadError))} val) =>
    let file : (File | SectionReadError) = match _file
     | None =>
-      match CreateFile(_path)
+      match try CreateFile(_path as FilePath) else FileError end
         | let file': File => file'
       else
         SectionReadError
