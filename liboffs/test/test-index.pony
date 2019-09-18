@@ -17,7 +17,7 @@ class iso _TestIndex is UnitTest
       let indexEntry2: IndexEntry = IndexEntry(block2.hash, 1, 1)
       let indexEntry3: IndexEntry = IndexEntry(block3.hash, 1, 2)
       let indexEntry4: IndexEntry = IndexEntry(block4.hash, 1, 3)
-      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)?
+      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/")?)?
       blockIndex.add(indexEntry1)?
       blockIndex.add(indexEntry2)?
       blockIndex.add(indexEntry3)?
@@ -46,13 +46,13 @@ class iso _TestIndexJSON is UnitTest
       let block3: Block[Nano] val = Block[Nano]()?
       let block4: Block[Nano] val = Block[Nano]()?
 
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/")?
+      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/")?
 
       let indexEntry1: IndexEntry = IndexEntry(block1.hash, 1, 0)
       let indexEntry2: IndexEntry = IndexEntry(block2.hash, 1, 1)
       let indexEntry3: IndexEntry = IndexEntry(block3.hash, 1, 2)
       let indexEntry4: IndexEntry = IndexEntry(block4.hash, 1, 3)
-      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/")?)?
+      let blockIndex : Index = Index(2, FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/")?)?
       blockIndex.add(indexEntry1)?
       blockIndex.add(indexEntry2)?
       blockIndex.add(indexEntry3)?

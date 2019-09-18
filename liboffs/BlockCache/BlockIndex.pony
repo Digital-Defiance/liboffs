@@ -158,7 +158,7 @@ class Index
   new create(bucketSize': USize, path': FilePath)? =>
     _bucketSize = bucketSize'
     _root = IndexNode._create(List[IndexEntry](_bucketSize))
-    let path = FilePath(path', "index/.index")?
+    let path = FilePath(path', ".index")?
     path.mkdir()
     _path = path
 
@@ -176,14 +176,14 @@ class Index
   new from(root': IndexNode, bucketSize': USize, path': FilePath)? =>
     _root = root'
     _bucketSize = bucketSize'
-    let path = FilePath(path', "index/index")?
+    let path = FilePath(path', ".index")?
     path.mkdir()
     _path = path
 
   new fromJSON(obj: JsonObject val, path': FilePath)? =>
     _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
     _bucketSize = (obj.data("bucketSize")? as F64).usize()
-    let path = FilePath(path', "index/index")?
+    let path = FilePath(path', ".index")?
     path.mkdir()
     _path = path
 

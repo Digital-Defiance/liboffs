@@ -14,6 +14,7 @@ actor Sections [B:BlockType]
   let _sections: LRUCache[USize, Section[B]] = LRUCache[USize, Section[B]](10)
   let _timers: Timers = Timers
   var _saver: (Timer iso! | None) = None
+
   new create(path': FilePath, size: USize) =>
     _roundRobin = recover List[USize](5) end
     _size = size
@@ -25,6 +26,8 @@ actor Sections [B:BlockType]
         | (let dataPath: FilePath, let metaPath: FilePath) =>
           dataPath.mkdir()
           metaPath.mkdir()
+          let metaDir = Directory(metaPath)?
+          _nextId = metaDir.entries()?.size() + 1
       end
       _robinPath = FilePath(path, ".robin")?
 
@@ -63,6 +66,7 @@ actor Sections [B:BlockType]
     _roundRobin.push(id)
     _sections(id) = section
     section
+
   be _full(sectionId: USize) =>
     _roundRobin = _roundRobin.filter({(section) : Bool => section == sectionId} val)
     let id: USize = _nextId = _nextId + 1
@@ -73,6 +77,7 @@ actor Sections [B:BlockType]
     else
       None
     end
+
   be write(block: Block[B], cb: {(((USize, USize) | SectionWriteError))} val) =>
     try
       let sectionId: USize = _roundRobin.shift()?
@@ -135,6 +140,7 @@ actor Sections [B:BlockType]
           cb(SectionDeallocateError)
         end
     end
+
   be _saveRoundRobin() =>
     let arr: Array[JsonType] = Array[JsonType](_roundRobin.size())
     for id in _roundRobin.values() do
@@ -151,6 +157,7 @@ actor Sections [B:BlockType]
     else
       None
     end
+    
   fun ref _save() =>
     match _saver
     | let saver : Timer iso! =>
