@@ -55,7 +55,7 @@ class val Block [B: BlockType]
       data'
     end
 
-    hash = SHA2Hash(data, 34)
+    hash = SHA2Hash(data, 32)
 
   new val _withHash(data': Array[U8] val, hash': Array[U8] val) =>
     data = data'
@@ -66,6 +66,21 @@ class val Block [B: BlockType]
 
   fun size(): USize =>
     data.size()
+
+  fun box eq(that: box->Block[B]): Bool =>
+    try
+      if (this.data.size() != that.data.size()) then
+        return false
+      end
+      for i in Range(0, this.size()) do
+        if this.data(i)? != that.data(i)? then
+          return false
+        end
+      end
+      true
+    else
+      false
+    end
 
   fun box op_xor (that: box->Block[B]): Block[B] val ?=>
     let data2: Array[U8] val = recover

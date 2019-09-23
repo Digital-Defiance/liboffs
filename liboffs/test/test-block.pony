@@ -10,7 +10,7 @@ class iso _TestBlock is UnitTest
       let block: Block[Mega] val = Block[Mega](data)?
       t.assert_true(block.data.size() == BlockSize[Mega]())
       t.assert_true(block.key()?.size() > 0)
-      t.assert_true(block.hash.size() == 34)
+      t.assert_true(block.hash.size() == 32)
       t.assert_true(Block[Nano]()?.data.size() == BlockSize[Nano]())
     else
       t.fail("Block Creation Failed")

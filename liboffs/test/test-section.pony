@@ -17,6 +17,7 @@ interface DeallocateNextLoop
 
 class iso _TestSection is UnitTest
   fun name(): String => "Testing Section"
+  fun exclusion_group(): String => "Block Cache"
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     try
@@ -237,7 +238,7 @@ class iso _TestSection is UnitTest
                 if _i < _blocks.size() then
                   _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
-                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth,  "offs/blocks/nano/sections/")?)? end
+                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth,  "offs/blocks/nano/index/")?)? end
                   _cb(consume index'')
                 end
               else

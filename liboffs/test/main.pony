@@ -17,4 +17,5 @@ actor Main is TestList
     test(_TestIndex)
     test(_TestIndexJSON)
     test(_TestSection)
-    test(_TestBlockCache)
+    test(_TestSections)
+   // test(_TestBlockCache)
