@@ -3,6 +3,7 @@ use "files"
 use "json"
 use "LRUCache"
 use "time"
+use "ponytest"
 
 actor Sections [B:BlockType]
   var _nextId: USize  = 1
@@ -68,7 +69,7 @@ actor Sections [B:BlockType]
     section
 
   be _full(sectionId: USize) =>
-    _roundRobin = _roundRobin.filter({(section) : Bool => section == sectionId} val)
+    _roundRobin = _roundRobin.filter({(section) : Bool => section != sectionId} val)
     let id: USize = _nextId = _nextId + 1
     try
       let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, id)
@@ -88,7 +89,7 @@ actor Sections [B:BlockType]
         | let section: Section[B] =>
           let cb' = {(index: ((USize, Bool) | SectionWriteError)) (sectionId, sections: Sections[B] = this) =>
             match index
-            | (let index': USize, let full: Bool) =>
+              | (let index': USize, let full: Bool) =>
                 if full then
                   sections._full(sectionId)
                 end
@@ -157,7 +158,7 @@ actor Sections [B:BlockType]
     else
       None
     end
-    
+
   fun ref _save() =>
     match _saver
     | let saver : Timer iso! =>
