@@ -34,7 +34,7 @@ actor SectionsTester[B: BlockType]
     match _path
       | let path :FilePath => path.mkdir()
         _index = try Index(25, path)? else None end
-        _sections = Sections[B](path, 3, _t)// TODO: How large should a section be?
+        _sections = Sections[B](path, 3)// TODO: How large should a section be?
     end
     _cb = cb
 
@@ -103,7 +103,26 @@ actor SectionsTester[B: BlockType]
         _i = 0
         _cb()
       end
-
+    else
+      if _i < _blocks.size() then
+        try
+          testDeallocate(_blocks(_i = _i + 1)?.hash, {( err: (None | SectionDeallocateError)) (next: SectionsTester[B] = this) =>
+            match err
+              | SectionDeallocateError =>
+                _t.fail("Section Deallocate Error")
+                _t.complete(true)
+            end
+            next()
+          })
+        else
+          _t.fail("block error")
+          _t.complete(true)
+        end
+      else
+        _readTestComplete = true
+        _i = 0
+        _cb()
+      end
     end
 
   be testWrite(block: Block[B] val, cb: {()} val) =>
@@ -191,7 +210,39 @@ actor SectionsTester[B: BlockType]
           cb(SectionReadError)
         end
     end
-
+  be testDeallocate (hash: Array[U8] val, cb: {((None | SectionDeallocateError))} val) =>
+    match _index
+      | None =>
+        _t.fail("Invalid Index")
+        _t.complete(true)
+        return
+      | let index: Index =>
+        try
+          match index.find(hash)?
+            | let entry: IndexEntry =>
+              let cb' = {(err: (None | SectionDeallocateError)) =>
+                match err
+                  | SectionDeallocateError =>
+                    _t.fail("Section Deallocate Error")
+                    _t.complete(true)
+                  | None  =>
+                    cb(None)
+                end
+              } val
+              match _sections
+                | let sections: Sections[B] =>
+                  sections.deallocate(entry.sectionId, entry.sectionIndex, cb')
+              end
+              index.remove(hash)?
+            | None =>
+              _t.fail("Block Not Found")
+              _t.complete(true)
+              return
+          end
+        else
+          cb(SectionDeallocateError)
+        end
+    end
 class iso _TestSections is UnitTest
   fun name(): String => "Testing Sections"
   fun exclusion_group(): String => "Block Cache"

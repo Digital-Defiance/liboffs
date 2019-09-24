@@ -3,7 +3,6 @@ use "files"
 use "json"
 use "LRUCache"
 use "time"
-use "ponytest"
 
 actor Sections [B:BlockType]
   var _nextId: USize  = 1
@@ -36,7 +35,7 @@ actor Sections [B:BlockType]
         | let robinFile: File =>
           let text: String = robinFile.read_string(robinFile.size())
           let doc: JsonDoc = JsonDoc
-        doc.parse(text)?
+          doc.parse(text)?
           try
             let arr: JsonArray = doc.data as JsonArray
             for sectionId in arr.data.values() do
@@ -71,12 +70,21 @@ actor Sections [B:BlockType]
   be _full(sectionId: USize) =>
     _roundRobin = _roundRobin.filter({(section) : Bool => section != sectionId} val)
     let id: USize = _nextId = _nextId + 1
-    try
-      let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, id)
-      _roundRobin.unshift(id)
-      _sections(id) = section'
-    else
-      None
+    if _roundRobin.size() < 5 then
+      try
+        let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, id)
+        _roundRobin.unshift(id)
+        _sections(id) = section'
+        _save()
+      else
+        None
+      end
+    end
+
+  be _free(sectionId: USize) =>
+    if _roundRobin.contains[USize](sectionId) == false then
+      _roundRobin.unshift(sectionId)
+      _save()
     end
 
   be write(block: Block[B], cb: {(((USize, USize) | SectionWriteError))} val) =>
@@ -126,14 +134,22 @@ actor Sections [B:BlockType]
   be deallocate(sectionId: USize, sectionIndex: USize, cb: {((None | SectionDeallocateError))} val) =>
     match _sections(sectionId)
       | let section: Section[B] =>
-        let cb' = {(err: (None | SectionDeallocateError)) =>
+        let cb' = {(err: (None | SectionDeallocateError)) (sectionId, sections: Sections[B] = this)=>
+          match err
+            | None =>
+              sections._free(sectionId)
+          end
           cb(err)
         } val
         section.deallocate(sectionIndex, cb')
       | None =>
         try
           let section: Section[B] = _getSection(sectionId)?
-          let cb' = {(err: (None | SectionDeallocateError)) =>
+          let cb' = {(err: (None | SectionDeallocateError)) (sections: Sections[B] = this) =>
+            match err
+              | None =>
+                sections._free(sectionId)
+            end
             cb(err)
           } val
           section.deallocate(sectionIndex, cb')
@@ -152,7 +168,9 @@ actor Sections [B:BlockType]
     try
       match CreateFile((_robinPath as FilePath))
         | let file: File =>
-          file.write(doc.string())
+          let text: String = doc.string()
+          file.set_length(text.size())
+          file.write(text)
           file.dispose()
       end
     else
@@ -161,7 +179,7 @@ actor Sections [B:BlockType]
 
   fun ref _save() =>
     match _saver
-    | let saver : Timer iso! =>
+      | let saver : Timer iso! =>
         _timers.cancel(saver)
     end
     let saver: SectionSaver iso = SectionSaver({() (sections: Sections[B] = this) =>
