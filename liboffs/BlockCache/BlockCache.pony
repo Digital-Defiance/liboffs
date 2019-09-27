@@ -16,23 +16,25 @@ actor BlockCache [B: BlockType]
 
   new create(path': FilePath) =>
     let name: String = iftype B <: Mega then
-      ".mega/"
+      "mega/"
     elseif B <: Standard then
-      ".block/"
+      "block/"
     elseif B <: Mini then
-       ".mini/"
+       "mini/"
     elseif B <: Nano then
-      ".nano/"
+      "nano/"
     else
       ""
     end
 
     _path = try FilePath(path', name)? else None end
     match _path
-      | let path :FilePath => path.mkdir()
+      | let path :FilePath =>
+        path.mkdir()
         _index = try Index(25, path)? else None end
         _sections = Sections[B](path, 25)// TODO: How large should a section be?
     end
+
   be _checkIn(hash: Array[U8] val, sectionId: USize, sectionIndex: USize) =>
     try
       let entry: IndexEntry = _entryCheckout(hash)?
@@ -42,6 +44,7 @@ actor BlockCache [B: BlockType]
     else
       None
     end
+
   be _removeIndex(hash: Array[U8] val) =>
     try
       _entryCheckout.remove(hash)?
@@ -52,6 +55,7 @@ actor BlockCache [B: BlockType]
     else
       None
     end
+
   be put(block: Block[B], cb: {((None | SectionWriteError | InvalidCacheError ))} val) =>
       match _index
         | None =>
@@ -85,7 +89,7 @@ actor BlockCache [B: BlockType]
               end
               _save()
             else
-                cb(None)
+              cb(None)
             end
           else
             cb(SectionWriteError)
@@ -173,7 +177,7 @@ actor BlockCache [B: BlockType]
     end
 
     let saver: IndexSaver iso = IndexSaver({() (blockCache: BlockCache[B] = this) => blockCache._saveIndex()} val)
-    let timer: Timer iso = Timer(consume saver, 250000, 250000)
+    let timer: Timer iso = Timer(consume saver, 500000, 500000)
     _curTimer = timer
     _timers(consume timer)
 

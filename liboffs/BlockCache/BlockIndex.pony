@@ -158,9 +158,9 @@ class Index
   new create(bucketSize': USize, path': FilePath)? =>
     _bucketSize = bucketSize'
     _root = IndexNode._create(List[IndexEntry](_bucketSize))
-    let path = FilePath(path', ".index")?
+    let path = FilePath(path', "index/")?
     path.mkdir()
-    _path = path
+    _path = FilePath(path, ".index")?
 
     match OpenFile(_path)
       | let indexFile: File =>
@@ -199,7 +199,9 @@ class Index
     doc.data = obj
     match CreateFile(_path)
       | let file: File =>
-        file.write(doc.string())
+        let text: String = doc.string()
+        file.set_length(text.size())
+        file.write(text)
         file.dispose()
     end
 
