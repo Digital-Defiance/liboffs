@@ -3,6 +3,7 @@ use "collections"
 use "json"
 use "time"
 use "ponytest"
+use "Buffer"
 
 primitive SectionReadError
 primitive SectionWriteError
@@ -201,7 +202,7 @@ actor Section [B: BlockType]
           | let file': File =>
             let byte: ISize = (index * BlockSize[B]()).isize()
             file'.seek(byte)
-            let ok = file'.write(block.data)
+            let ok = file'.write(block.data.data)
             if (ok) then
               cb((index, full()))
               _save()
@@ -211,7 +212,7 @@ actor Section [B: BlockType]
         end
     end
 
-  be read(index: USize, cb: {((Array[U8] val | SectionReadError))} val) =>
+  be read(index: USize, cb: {((Buffer val | SectionReadError))} val) =>
    let file : (File | SectionReadError) = match _file
     | None =>
       match try CreateFile(_path as FilePath) else FileError end
@@ -228,7 +229,7 @@ actor Section [B: BlockType]
       | let file': File => file
         let byte: ISize = (index * BlockSize[B]()).isize()
         file'.seek(byte)
-        let data: Array[U8] val = file'.read(BlockSize[B]())
+        let data: Buffer val = recover Buffer(file'.read(BlockSize[B]())) end
         cb(data)
     end
   fun ref _save() =>

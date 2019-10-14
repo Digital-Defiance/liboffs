@@ -3,6 +3,7 @@ use "files"
 use "json"
 use "LRUCache"
 use "time"
+use "Buffer"
 
 actor Sections [B:BlockType]
   var _nextId: USize  = 1
@@ -14,9 +15,11 @@ actor Sections [B:BlockType]
   let _sections: LRUCache[USize, Section[B]] = LRUCache[USize, Section[B]](10)
   let _timers: Timers = Timers
   var _saver: (Timer iso! | None) = None
+  let _maxTupleSize: USize
 
-  new create(path': FilePath, size: USize) =>
-    _roundRobin = recover List[USize](5) end
+  new create(path': FilePath, size: USize, maxTupleSize: USize) =>
+    _maxTupleSize = maxTupleSize
+    _roundRobin = recover List[USize](_maxTupleSize) end
     _size = size
     try
       let path =  FilePath(path', "sections/")?
@@ -52,7 +55,7 @@ actor Sections [B:BlockType]
     end
     match (_dataPath, _metaPath)
       | (let dataPath: FilePath, let metaPath: FilePath) =>
-        while _roundRobin.size() < 5 do
+        while _roundRobin.size() < _maxTupleSize do
           let id: USize = (_nextId = _nextId + 1)
           let section: Section[B] = Section[B](dataPath, metaPath, _size, id)
           _roundRobin.push(id)
@@ -70,7 +73,7 @@ actor Sections [B:BlockType]
   be _full(sectionId: USize) =>
     _roundRobin = _roundRobin.filter({(section) : Bool => section != sectionId} val)
     let id: USize = _nextId = _nextId + 1
-    if _roundRobin.size() < 5 then
+    if _roundRobin.size() < _maxTupleSize then
       try
         let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, id)
         _roundRobin.unshift(id)
@@ -112,17 +115,17 @@ actor Sections [B:BlockType]
       cb(SectionWriteError)
     end
 
-  be read(sectionId: USize, sectionIndex: USize, cb: {((Array[U8] val | SectionReadError))} val) =>
+  be read(sectionId: USize, sectionIndex: USize, cb: {((Buffer val | SectionReadError))} val) =>
     match _sections(sectionId)
       | let section: Section[B] =>
-        let cb' = {(data:(Array[U8] val | SectionReadError)) =>
+        let cb' = {(data:(Buffer val | SectionReadError)) =>
           cb(data)
         } val
         section.read(sectionIndex, cb')
       | None =>
         try
           let section: Section[B] = _getSection(sectionId)?
-          let cb' = {(data:(Array[U8] val | SectionReadError)) =>
+          let cb' = {(data:(Buffer val | SectionReadError)) =>
             cb(data)
           } val
           section.read(sectionIndex, cb')

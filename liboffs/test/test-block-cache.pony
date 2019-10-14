@@ -2,6 +2,7 @@ use "ponytest"
 use "collections"
 use "files"
 use "../BlockCache"
+use "../Global"
 
 actor BlockCacheTester[B: BlockType]
   let _t: TestHelper
@@ -18,7 +19,7 @@ actor BlockCacheTester[B: BlockType]
     _blocks = blocks
     _t = t
     _cb = cb
-    _bc = BlockCache[B](path')
+    _bc = BlockCache[B](DefaultConfig(), path')
 
   be apply() =>
     if putTestComplete == false then
@@ -30,6 +31,7 @@ actor BlockCacheTester[B: BlockType]
     else
       _cb()
     end
+
   be testPut() =>
     if _i < _blocks.size() then
       try

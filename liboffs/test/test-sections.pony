@@ -2,11 +2,12 @@ use "ponytest"
 use "../BlockCache"
 use "collections"
 use "files"
+use "Buffer"
 
 actor SectionsTester[B: BlockType]
   var _index: (Index | None) = None
   var _sections: (Sections[B] | None) =  None
-  let _entryCheckout: MapIs[Array[U8] val, IndexEntry] = MapIs[Array[U8] val, IndexEntry]
+  let _entryCheckout: MapIs[Buffer val, IndexEntry] = MapIs[Buffer val, IndexEntry]
   let _t: TestHelper
   let _blocks: List[Block[B]] val
   let _cb: {()} val
@@ -34,11 +35,11 @@ actor SectionsTester[B: BlockType]
     match _path
       | let path :FilePath => path.mkdir()
         _index = try Index(25, path)? else None end
-        _sections = Sections[B](path, 3)// TODO: How large should a section be?
+        _sections = Sections[B](path, 3, 5)// TODO: How large should a section be?
     end
     _cb = cb
 
-  be _checkIn(hash: Array[U8] val, sectionId: USize, sectionIndex: USize) =>
+  be _checkIn(hash: Buffer val, sectionId: USize, sectionIndex: USize) =>
     try
       let entry: IndexEntry = _entryCheckout(hash)?
       entry.sectionId = sectionId
@@ -49,7 +50,7 @@ actor SectionsTester[B: BlockType]
       _t.complete(true)
     end
 
-  be _removeIndex(hash: Array[U8] val) =>
+  be _removeIndex(hash: Buffer val) =>
     try
       _entryCheckout.remove(hash)?
       match _index
@@ -82,8 +83,8 @@ actor SectionsTester[B: BlockType]
             match block
               | let block': Block[B] =>
                 try
-                  _t.assert_array_eq[U8](block'.data, _blocks(i)?.data)
-                  _t.assert_array_eq[U8](block'.hash, _blocks(i)?.hash)
+                  _t.assert_true(block'.data ==  _blocks(i)?.data)
+                  _t.assert_true(block'.hash == _blocks(i)?.hash)
                 else
                   _t.fail("Block Index not found")
                   _t.complete(true)
@@ -140,7 +141,7 @@ actor SectionsTester[B: BlockType]
               return
             end
             _entryCheckout(block.hash) = entry
-            let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Array[U8] val = block.hash, sectionsTester: SectionsTester[B] = this) =>
+            let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Buffer val = block.hash, sectionsTester: SectionsTester[B] = this) =>
               match id
                 |  (let sectionId: USize, let sectionIndex: USize) =>
                   sectionsTester._checkIn(hash, sectionId, sectionIndex)
@@ -168,7 +169,7 @@ actor SectionsTester[B: BlockType]
         end
     end
 
-  be testRead(hash: Array[U8] val, cb: {((Block[B] | SectionReadError))} val) =>
+  be testRead(hash: Buffer val, cb: {((Block[B] | SectionReadError))} val) =>
     match _index
       | None =>
         _t.fail("Invalid Index")
@@ -178,12 +179,12 @@ actor SectionsTester[B: BlockType]
         try
           match index.find(hash)?
             | let entry: IndexEntry =>
-              let cb' = {(data: (Array[U8] val | SectionReadError)) =>
+              let cb' = {(data: (Buffer val | SectionReadError)) =>
                 match data
                   | SectionReadError =>
                     _t.fail("Section Read Error")
                     _t.complete(true)
-                  | let data': Array[U8] val =>
+                  | let data': Buffer val =>
                     try
                       let block: Block[B] = Block[B](data')?
                       cb(block)
@@ -210,7 +211,7 @@ actor SectionsTester[B: BlockType]
           cb(SectionReadError)
         end
     end
-  be testDeallocate (hash: Array[U8] val, cb: {((None | SectionDeallocateError))} val) =>
+  be testDeallocate (hash: Buffer val, cb: {((None | SectionDeallocateError))} val) =>
     match _index
       | None =>
         _t.fail("Invalid Index")

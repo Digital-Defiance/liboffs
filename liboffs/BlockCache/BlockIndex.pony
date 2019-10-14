@@ -1,9 +1,10 @@
 use "collections"
 use "json"
 use "files"
+use "Buffer"
 
 primitive GetBit
-  fun apply(data: ByteSeq, index: USize = 0) : Bool ? =>
+  fun apply(data: Buffer val, index: USize = 0) : Bool ? =>
     let byte: USize = index / 8 // which byte in the array
     let byteIndex: USize = index % 8 // index of the bit in the bytes
     if ((data.size() < byte) and (byteIndex != 0)) then
@@ -14,52 +15,36 @@ primitive GetBit
       false
     end
 
-primitive U8ArrayEqual
-  fun apply(a: Array[U8] val, b: Array[U8] val) : Bool =>
-    try
-      if (a.size() != b.size()) then
-        return false
-      end
-      for i in Range(0, a.size()) do
-        if a(i)? != b(i)? then
-          return false
-        end
-      end
-      true
-    else
-      false
-    end
-
-primitive U8ArrayToJson
-  fun apply(data: Array[U8] val) : JsonArray =>
+primitive BufferToJson
+  fun apply(data: Buffer val) : JsonArray =>
     let array: Array[JsonType] = Array[JsonType](data.size())
     for value in data.values() do
-      array.push(value.f64())
+      array.push(value.i64())
     end
     JsonArray.from_array(array)
 
-primitive U8ArrayFromJson
-  fun apply(array: JsonArray val): Array[U8] val ? =>
+primitive BufferFromJson
+  fun apply(array: JsonArray val): Buffer val ? =>
     recover
       let data: Array[U8] ref = Array[U8](array.data.size())
       for value in array.data.values() do
-        data.push((value as F64).u8())
+        data.push((value as I64).u8())
       end
-      data
+      Buffer(data)
     end
 class IndexEntry
   let hits: FibonacciHitCounter ref
-  let hash: Array[U8] val
+  let hash: Buffer val
   var sectionId: USize
   var sectionIndex: USize
 
-  new create(hash': Array[U8] val, sectionId': USize = 0, sectionIndex': USize = 0) =>
+  new create(hash': Buffer val, sectionId': USize = 0, sectionIndex': USize = 0) =>
     hash = hash'
     sectionId = sectionId'
     sectionIndex = sectionIndex'
     hits = FibonacciHitCounter
 
-  new from(hash': Array[U8] val, sectionId': USize, sectionIndex': USize, hits': FibonacciHitCounter) =>
+  new from(hash': Buffer val, sectionId': USize, sectionIndex': USize, hits': FibonacciHitCounter) =>
     hash = hash'
     sectionId = sectionId'
     sectionIndex = sectionIndex'
@@ -67,14 +52,14 @@ class IndexEntry
 
   new fromJSON (obj: JsonObject val)? =>
     hits = FibonacciHitCounter.fromJSON(obj.data("hits")? as JsonObject val)?
-    hash = U8ArrayFromJson(obj.data("hash")? as JsonArray val)?
+    hash = BufferFromJson(obj.data("hash")? as JsonArray val)?
     sectionId = (obj.data("sectionId")? as I64).usize()
     sectionIndex = (obj.data("sectionIndex")? as I64).usize()
 
   fun toJSON (): JsonObject =>
     let obj = JsonObject
     obj.data("hits") = hits.toJSON()
-    obj.data("hash") = U8ArrayToJson(hash)
+    obj.data("hash") = BufferToJson(hash)
     obj.data("sectionIndex") = sectionIndex.i64()
     obj.data("sectionId") = sectionId.i64()
     obj
@@ -219,7 +204,7 @@ class Index
         end
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
-          if U8ArrayEqual(entry.hash, entry'.hash) then //Update
+          if entry.hash == entry'.hash then //Update
             entry'.hits.increment() // TODO Should I even have and update!?
             return
           end
@@ -233,7 +218,7 @@ class Index
         end
     end
 
-  fun ref get(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0): IndexEntry ? =>
+  fun ref get(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0): IndexEntry ? =>
     let node : IndexNode = match node'
       | None => _root
       | let node: IndexNode => node
@@ -247,7 +232,7 @@ class Index
         end
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
-          if U8ArrayEqual(hash, entry'.hash) then
+          if hash == entry'.hash then
             entry'.hits.increment()
             return entry'
           end
@@ -257,7 +242,7 @@ class Index
         return entry
     end
 
-  fun ref find(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
+  fun ref find(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
     let node : IndexNode = match node'
       | None => _root
       | let node: IndexNode => node
@@ -271,7 +256,7 @@ class Index
         end
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
-          if U8ArrayEqual(hash, entry'.hash) then
+          if hash == entry'.hash then
             entry'.hits.increment()
             return entry'
           end
@@ -279,7 +264,7 @@ class Index
         None
     end
 
-  fun ref remove(hash: Array[U8] val, node': (IndexNode | None) = None, index: USize = 0) ? =>
+  fun ref remove(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0) ? =>
     let node : IndexNode = match node'
       | None => _root
       | let node: IndexNode => node
@@ -295,7 +280,7 @@ class Index
         var i : USize = - 1
         for entry' in bucket'.values() do
           i = i + 1
-          if U8ArrayEqual(hash, entry'.hash) then
+          if hash == entry'.hash then
             bucket'.remove(i)?
             break
           end

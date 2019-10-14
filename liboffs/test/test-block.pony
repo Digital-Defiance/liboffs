@@ -1,12 +1,13 @@
 use "package:../BlockCache"
 use "ponytest"
 use "collections"
+use "Buffer"
 
 class iso _TestBlock is UnitTest
   fun name(): String => "Testing Block Creation"
   fun apply(t: TestHelper) =>
     try
-      let data: Array[U8] val = [1;2;3;4;5;6;7;8;9;10;11;12;13]
+      let data: Buffer val = recover Buffer.fromArray([1;2;3;4;5;6;7;8;9;10;11;12;13]) end
       let block: Block[Mega] val = Block[Mega](data)?
       t.assert_true(block.data.size() == BlockSize[Mega]())
       t.assert_true(block.key()?.size() > 0)
@@ -20,7 +21,7 @@ class iso _TestBlockXOR is UnitTest
   fun name(): String => "Testing Block XOR"
   fun apply(t: TestHelper) =>
     try
-      let data: Array[U8] val = [1;2;3;4;5;6;7;8;9;10;11;12;13]
+      let data: Buffer val = recover Buffer.fromArray([1;2;3;4;5;6;7;8;9;10;11;12;13]) end
       let block1: Block[Standard] val = Block[Standard](data)?
       let block2: Block[Standard] val = Block[Standard]()?
       let block3: Block[Standard] val = block1 xor? block2

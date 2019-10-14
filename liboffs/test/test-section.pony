@@ -2,13 +2,14 @@ use "ponytest"
 use "../BlockCache"
 use "collections"
 use "files"
+use "Buffer"
 
 interface WriteNextLoop
   be loop(index: ((USize, Bool) | SectionWriteError))
   be apply()
 
 interface ReadNextLoop
-  be loop(index: (Array[U8] val | SectionReadError))
+  be loop(index: (Buffer val | SectionReadError))
   be apply()
 
 interface DeallocateNextLoop
@@ -172,7 +173,7 @@ class iso _TestSection is UnitTest
           be apply() =>
             if _i < _indexes.size() then
               try
-                _section.read(_indexes(_i = _i + 1)?, {(data: (Array[U8] val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
+                _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
               else
                 _t.fail("block error")
                 _t.complete(true)
@@ -181,17 +182,17 @@ class iso _TestSection is UnitTest
               _cb()
             end
 
-          be loop(data: (Array[U8] val | SectionReadError)) =>
+          be loop(data: (Buffer val | SectionReadError)) =>
             match data
               | SectionReadError =>
                 _t.fail("SectionReadError")
                 _t.complete(true)
-              | let data' : Array[U8] val =>
+              | let data' : Buffer val =>
                 try
                   if _i < _indexes.size() then
                     let block: Block[Nano] = Block[Nano](data')?
-                    t.assert_array_eq[U8](block.data, _blocks(_i - 1)?.data)
-                    _section.read(_indexes(_i = _i + 1)?, {(data: (Array[U8] val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
+                    t.assert_true(block.data == _blocks(_i - 1)?.data)
+                    _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
                   else
                     _cb()
                   end

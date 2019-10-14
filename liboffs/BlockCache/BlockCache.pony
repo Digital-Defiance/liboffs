@@ -2,6 +2,8 @@ use "files"
 use "time"
 use "LRUCache"
 use "collections"
+use "Config"
+use "Buffer"
 
 primitive InvalidCacheError
 primitive BlockNotFound
@@ -12,9 +14,11 @@ actor BlockCache [B: BlockType]
   var _curTimer: (Timer iso! | None) = None
   var _index: (Index | None) = None
   var _sections: (Sections[B] | None) = None
-  let _entryCheckout: MapIs[Array[U8] val, IndexEntry] = MapIs[Array[U8] val, IndexEntry]
+  let _entryCheckout: MapIs[Buffer val, IndexEntry] = MapIs[Buffer val, IndexEntry]
+  var _config: Config val
 
-  new create(path': FilePath) =>
+  new create(config': Config val, path': FilePath) =>
+    _config = config'
     let name: String = iftype B <: Mega then
       "mega/"
     elseif B <: Standard then
@@ -31,11 +35,11 @@ actor BlockCache [B: BlockType]
     match _path
       | let path :FilePath =>
         path.mkdir()
-        _index = try Index(25, path)? else None end
-        _sections = Sections[B](path, 25)// TODO: How large should a section be?
+        _index = try Index((_config("indexNodeSize")? as USize), path)? else None end
+        _sections = try Sections[B](path, (_config("sectionSize")? as USize), (_config("maxTupleSize")? as USize)) else None end// TODO: How large should a section be?
     end
 
-  be _checkIn(hash: Array[U8] val, sectionId: USize, sectionIndex: USize) =>
+  be _checkIn(hash: Buffer val, sectionId: USize, sectionIndex: USize) =>
     try
       let entry: IndexEntry = _entryCheckout(hash)?
       entry.sectionId = sectionId
@@ -45,7 +49,7 @@ actor BlockCache [B: BlockType]
       None
     end
 
-  be _removeIndex(hash: Array[U8] val) =>
+  be _removeIndex(hash: Buffer val) =>
     try
       _entryCheckout.remove(hash)?
       match _index
@@ -70,7 +74,7 @@ actor BlockCache [B: BlockType]
                 return
               end
               _entryCheckout(block.hash) = entry
-              let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Array[U8] val = block.hash, blockCache: BlockCache[B] = this) =>
+              let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Buffer val = block.hash, blockCache: BlockCache[B] = this) =>
                 match id
                   |  (let sectionId: USize, let sectionIndex: USize) =>
                     blockCache._checkIn(hash, sectionId, sectionIndex)
@@ -96,7 +100,7 @@ actor BlockCache [B: BlockType]
           end
       end
 
-  be get(hash: Array[U8] val, cb: {((Block[B] | SectionReadError | InvalidCacheError | BlockNotFound))} val) =>
+  be get(hash: Buffer val, cb: {((Block[B] | SectionReadError | InvalidCacheError | BlockNotFound))} val) =>
     match _index
       | None =>
         cb(InvalidCacheError)
@@ -105,13 +109,17 @@ actor BlockCache [B: BlockType]
         try
           match index.find(hash)?
             | let entry: IndexEntry =>
-              let cb' = {(data: (Array[U8] val | SectionReadError)) =>
+              let cb' = {(data: (Buffer val | SectionReadError)) =>
                 match data
                   | SectionReadError =>
                     cb(SectionReadError)
-                  | let data': Array[U8] val =>
-                    let block: Block[B] = Block[B]._withHash(data', hash)
-                    cb(block)
+                  | let data': Buffer val =>
+                    try
+                      let block: Block[B] = Block[B]._withHash(data', hash)?
+                      cb(block)
+                    else
+                      cb(SectionReadError)
+                    end
                 end
               } val
               match _sections
@@ -132,7 +140,7 @@ actor BlockCache [B: BlockType]
     end
 
 
-  be remove(hash: Array[U8] val, cb: {((None | SectionDeallocateError | InvalidCacheError | BlockNotFound))} val) =>
+  be remove(hash: Buffer val, cb: {((None | SectionDeallocateError | InvalidCacheError | BlockNotFound))} val) =>
     match _index
       | None =>
         cb(InvalidCacheError)

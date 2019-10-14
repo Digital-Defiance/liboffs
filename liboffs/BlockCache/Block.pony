@@ -2,6 +2,7 @@ use "Base58"
 use "time"
 use "random"
 use "collections"
+use "Buffer"
 
 primitive Mega
 primitive Nano
@@ -35,10 +36,10 @@ primitive RandomBytes
     bytes
 
 class val Block [B: BlockType]
-  let hash: Array[U8] val
-  let data: Array[U8] val
+  let hash: Buffer val
+  let data: Buffer val
 
-  new val create(data': Array[U8] val = [])? =>
+  new val create(data': Buffer val = recover val Buffer end) ? =>
     let diff = BlockSize[B]() - data'.size()
     if (diff < 0) then
       error
@@ -47,47 +48,38 @@ class val Block [B: BlockType]
       recover
         let full : Array[U8] = Array[U8](BlockSize[B]())
         let pad = RandomBytes(diff)
-        full.append(data')
+        full.append(data'.data)
         full.append(pad)
-        full
+        Buffer(full)
       end
     else
       data'
     end
 
-    hash = SHA2Hash(data, 32)
+    hash = Buffer.fromArray(SHA2Hash(data.data, 32))
 
-  new val _withHash(data': Array[U8] val, hash': Array[U8] val) =>
+  new val _withHash(data': Buffer val, hash': Buffer val)? =>
+    if data'.size() != BlockSize[B]() then
+      error
+    end
     data = data'
     hash = hash'
 
   fun key(): String val ? =>
-    recover val Base58.encode(hash)? end
+    recover val Base58.encode(hash.data)? end
 
   fun size(): USize =>
     data.size()
 
   fun box eq(that: box->Block[B]): Bool =>
-    try
-      if (this.data.size() != that.data.size()) then
-        return false
-      end
-      for i in Range(0, this.size()) do
-        if this.data(i)? != that.data(i)? then
-          return false
-        end
-      end
-      true
-    else
-      false
-    end
+    data == that.data
 
   fun box op_xor (that: box->Block[B]): Block[B] val ?=>
-    let data2: Array[U8] val = recover
+    let data2: Buffer val = recover
       let data': Array[U8] = Array[U8](BlockSize[B]())
       for i in Range(0, BlockSize[B]()) do
         data'.push(data(i)? xor that.data(i)?)
       end
-      data'
+      Buffer(data')
     end
     Block[B](data2)?
