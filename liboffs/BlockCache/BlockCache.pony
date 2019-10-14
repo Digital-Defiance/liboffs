@@ -16,6 +16,7 @@ actor BlockCache [B: BlockType]
   var _sections: (Sections[B] | None) = None
   let _entryCheckout: MapIs[Buffer val, IndexEntry] = MapIs[Buffer val, IndexEntry]
   var _config: Config val
+  let _blocks: LRUCache[Buffer val, Block[B] val]
 
   new create(config': Config val, path': FilePath) =>
     _config = config'
@@ -31,6 +32,7 @@ actor BlockCache [B: BlockType]
       ""
     end
 
+    _blocks = try LRUCache[Buffer val, Block[B] val](_config("lruSize")? as USize) else LRUCache[Buffer val, Block[B] val](20) end
     _path = try FilePath(path', name)? else None end
     match _path
       | let path :FilePath =>
@@ -59,6 +61,8 @@ actor BlockCache [B: BlockType]
     else
       None
     end
+  be _cacheBlock(block: Block[B] val) =>
+    _blocks(block.hash) = block
 
   be put(block: Block[B], cb: {((None | SectionWriteError | InvalidCacheError ))} val) =>
       match _index
@@ -101,43 +105,49 @@ actor BlockCache [B: BlockType]
       end
 
   be get(hash: Buffer val, cb: {((Block[B] | SectionReadError | InvalidCacheError | BlockNotFound))} val) =>
-    match _index
+    match _blocks(hash)
+      | let block: Block[B] =>
+        cb(block)
       | None =>
-        cb(InvalidCacheError)
-        return
-      | let index: Index =>
-        try
-          match index.find(hash)?
-            | let entry: IndexEntry =>
-              let cb' = {(data: (Buffer val | SectionReadError)) =>
-                match data
-                  | SectionReadError =>
-                    cb(SectionReadError)
-                  | let data': Buffer val =>
-                    try
-                      let block: Block[B] = Block[B]._withHash(data', hash)?
-                      cb(block)
-                    else
-                      cb(SectionReadError)
+        match _index
+          | None =>
+            cb(InvalidCacheError)
+            return
+          | let index: Index =>
+            try
+              match index.find(hash)?
+                | let entry: IndexEntry =>
+                  let cb' = {(data: (Buffer val | SectionReadError)) (blockCache: BlockCache[B] = this) =>
+                    match data
+                      | SectionReadError =>
+                        cb(SectionReadError)
+                      | let data': Buffer val =>
+                        try
+                          let block: Block[B] = Block[B]._withHash(data', hash)?
+                          blockCache._cacheBlock(block)
+                          cb(block)
+                        else
+                          cb(SectionReadError)
+                        end
                     end
-                end
-              } val
-              match _sections
-                | let sections: Sections[B] =>
-                  sections.read(entry.sectionId, entry.sectionIndex, cb')
-              else
-                cb(InvalidCacheError)
-                return
+                  } val
+                  match _sections
+                    | let sections: Sections[B] =>
+                      sections.read(entry.sectionId, entry.sectionIndex, cb')
+                  else
+                    cb(InvalidCacheError)
+                    return
+                  end
+                  _save()
+                | None =>
+                  cb(BlockNotFound)
+                  return
               end
-              _save()
-            | None =>
-              cb(BlockNotFound)
-              return
-          end
-        else
-          cb(SectionReadError)
+            else
+              cb(SectionReadError)
+            end
         end
-    end
+      end
 
 
   be remove(hash: Buffer val, cb: {((None | SectionDeallocateError | InvalidCacheError | BlockNotFound))} val) =>
@@ -162,6 +172,7 @@ actor BlockCache [B: BlockType]
                   sections.deallocate(entry.sectionId, entry.sectionIndex, cb')
               end
               index.remove(hash)?
+              _blocks.remove(hash)
               _save()
             | None =>
               cb(BlockNotFound)
