@@ -15,11 +15,11 @@ actor BlockCacheTester[B: BlockType]
   var getTestComplete: Bool = false
   var removeTestComplete: Bool = false
 
-  new create(t: TestHelper, blocks: List[Block[B]] val, path': FilePath, cb: {()} val) =>
+  new create(t: TestHelper, blocks: List[Block[B]] val, path': FilePath, bc': BlockCache[B], cb: {()} val) =>
     _blocks = blocks
     _t = t
     _cb = cb
-    _bc = BlockCache[B](DefaultConfig(), path')
+    _bc = bc'
 
   be apply() =>
     if putTestComplete == false then
@@ -35,15 +35,12 @@ actor BlockCacheTester[B: BlockType]
   be testPut() =>
     if _i < _blocks.size() then
       try
-        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | SectionWriteError | InvalidCacheError )) (bc: BlockCacheTester[B] = this) =>
+        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | SectionWriteError )) (bc: BlockCacheTester[B] = this) =>
           match err
             | None =>
               bc.testPut()
             | SectionWriteError =>
               _t.fail("Section Write Error")
-              _t.complete(true)
-            | InvalidCacheError =>
-              _t.fail("Invalid Cache Error")
               _t.complete(true)
           end
         })
@@ -59,7 +56,7 @@ actor BlockCacheTester[B: BlockType]
   be testGet() =>
     if _i < _blocks.size() then
       try
-        _bc.get(_blocks(_i = _i + 1)?.hash, {(block: (Block[B] | SectionReadError | InvalidCacheError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1)) =>
+        _bc.get(_blocks(_i = _i + 1)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1)) =>
           match block
             | let block': Block[B] =>
               try
@@ -87,11 +84,11 @@ actor BlockCacheTester[B: BlockType]
     be testRemove() =>
       if _i < _blocks.size() then
         try
-          _bc.remove(_blocks(_i = _i + 1)?.hash, {(err: (None | SectionDeallocateError | InvalidCacheError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1), _t) =>
+          _bc.remove(_blocks(_i = _i + 1)?.hash, {(err: (None | SectionDeallocateError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1), _t) =>
             match err
               | None =>
                 try
-                  _bc.get(_blocks(i)?.hash, {(block: (Block[B] | SectionReadError | InvalidCacheError | BlockNotFound)) (bc,_t) =>
+                  _bc.get(_blocks(i)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc,_t) =>
                     match block
                       | let block': Block[B] =>
                         _t.fail("Block found after Removal")
@@ -134,7 +131,8 @@ class iso _TestBlockCache is UnitTest
       let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")?
       let offDir = Directory(FilePath(t.env.root as AmbientAuth, "offs/")?)?
       offDir.remove("blocks")
-      let bc = BlockCacheTester[Standard](t, blocks, path, {() =>
+      let bc': BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
+      let bc = BlockCacheTester[Standard](t, blocks, path, bc', {() =>
         t.complete(true)
       } val)
       bc()
