@@ -10,15 +10,23 @@
     },
     {
       "type": "github",
-      "repo": "ponylang/Crypto"
-    },
-    {
-      "type": "github",
       "repo": "vijayee/Config"
     },
     {
       "type": "github",
       "repo": "vijayee/Buffer"
-  }
+    },
+    {
+      "type": "github",
+      "repo": "vijayee/Streams"
+    },
+    {
+      "type": "github",
+      "repo": "vijayee/Blake2b"
+    },
+    {
+      "type": "github",
+      "repo": "vijayee/Exception"
+    }
   ]
 }

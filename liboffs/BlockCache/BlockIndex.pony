@@ -4,16 +4,13 @@ use "files"
 use "Buffer"
 
 primitive GetBit
-  fun apply(data: Buffer val, index: USize = 0) : Bool ? =>
+  fun apply(data: Buffer box, index: USize = 0) : Bool ? =>
+    if index >= (data.size() * 8) then
+      error
+    end
     let byte: USize = index / 8 // which byte in the array
     let byteIndex: USize = index % 8 // index of the bit in the bytes
-    if ((data.size() < byte) and (byteIndex != 0)) then
-      false
-    elseif ((data(byte)? and F64(2).pow(7 - byteIndex.f64()).u8()) == 1) then
-      true
-    else
-      false
-    end
+    ((data(byte)? and (1 << (byteIndex.u8() - 1))) != 0)
 
 primitive BufferToJson
   fun apply(data: Buffer val) : JsonArray =>
@@ -135,10 +132,12 @@ class IndexNode
     end
     obj
 
+
 class Index
   var _root: IndexNode
   let _bucketSize: USize
   let _path: FilePath
+  let _ranks: Map[U64, Array[IndexEntry]]
 
   new create(bucketSize': USize, path': FilePath)? =>
     _bucketSize = bucketSize'
@@ -146,6 +145,7 @@ class Index
     let path = FilePath(path', "index/")?
     path.mkdir()
     _path = FilePath(path, ".index")?
+    _ranks = Map[U64, Array[IndexEntry]]
 
     match OpenFile(_path)
       | let indexFile: File =>
@@ -164,6 +164,7 @@ class Index
     let path = FilePath(path', ".index")?
     path.mkdir()
     _path = path
+    _ranks = Map[U64, Array[IndexEntry]]
 
   new fromJSON(obj: JsonObject val, path': FilePath)? =>
     _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
@@ -171,6 +172,18 @@ class Index
     let path = FilePath(path', ".index")?
     path.mkdir()
     _path = path
+    _ranks = Map[U64, Array[IndexEntry]]
+    let entries: List[IndexEntry] = List[IndexEntry]
+    for entry in entries.values() do
+      try
+        let rank: Array[IndexEntry] = _ranks(entry.hits.fib())?
+        rank.push(entry)
+      else
+        let rank: Array[IndexEntry] = Array[IndexEntry](1)
+        rank.push(entry)
+        _ranks.insert(entry.hits.fib(), rank)
+      end
+    end
 
   fun ref toJSON(): JsonObject =>
     let obj = JsonObject
@@ -205,17 +218,45 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if entry.hash == entry'.hash then //Update
-            entry'.hits.increment() // TODO Should I even have and update!?
+            if entry'.hits.increment() then
+              _promoteRank(entry')
+            end
             return
           end
         end
         if (bucket'.size() < _bucketSize) then
-          entry.hits.increment()
           bucket'.push(entry)
         else
           _split(node, index)?
           add(entry, node, index)?
         end
+        try
+          let rank: Array[IndexEntry] = _ranks(entry.hits.fib())?
+          rank.push(entry)
+        else
+          let rank: Array[IndexEntry] = Array[IndexEntry](1)
+          rank.push(entry)
+          _ranks.insert(entry.hits.fib(), rank)
+        end
+    end
+
+  fun ref _promoteRank(entry: IndexEntry) =>
+    try
+      var rank: Array[IndexEntry] = _ranks(entry.hits.fib() - 1)?
+      for i in Range(0, rank.size()) do
+        if rank(i)?.hash == entry.hash then
+          rank.delete(i)?
+          break
+        end
+      end
+      try
+        rank = _ranks(entry.hits.fib())?
+        rank.push(entry)
+      else
+        rank = Array[IndexEntry](1)
+        rank.push(entry)
+        _ranks.insert(entry.hits.fib(), rank)
+      end
     end
 
   fun ref get(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0): IndexEntry ? =>
@@ -233,7 +274,9 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if hash == entry'.hash then
-            entry'.hits.increment()
+            if entry'.hits.increment() then
+              _promoteRank(entry')
+            end
             return entry'
           end
         end
@@ -241,6 +284,9 @@ class Index
         add(entry, node', index)?
         return entry
     end
+
+  fun ranks(): Map[U64, Array[IndexEntry]] box =>
+    _ranks
 
   fun ref find(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0): (IndexEntry | None) ? =>
     let node : IndexNode = match node'
@@ -257,7 +303,9 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if hash == entry'.hash then
-            entry'.hits.increment()
+            if entry'.hits.increment() then
+              _promoteRank(entry')
+            end
             return entry'
           end
         end
@@ -277,13 +325,22 @@ class Index
           remove(hash, node.left, index + 1)?
         end
       | let bucket': List[IndexEntry] =>
-        var i : USize = - 1
+        var i : USize = 0
         for entry' in bucket'.values() do
-          i = i + 1
           if hash == entry'.hash then
             bucket'.remove(i)?
+            try
+              let ranks': Array[IndexEntry] = _ranks(entry'.hits.fib())?
+              for j in Range(0, ranks'.size()) do
+                if ranks'(j)?.hash == entry'.hash then
+                  ranks'.delete(j)?
+                  break
+                end
+              end
+            end
             break
           end
+          i = i + 1
         end
     end
 
@@ -304,28 +361,52 @@ class Index
           end
         end
 
-      fun ref size(node': (IndexNode | None) = None) : USize =>
-        let node = match node'
-          | None => _root
-          | let node : IndexNode => node
-        end
-        match node.bucket
-          | None =>
-            return size(node.right) + size(node.left)
-          | let bucket': List[IndexEntry] =>
-            bucket'.size()
-        end
+    fun ref size(node': (IndexNode | None) = None) : USize =>
+      let node = match node'
+        | None => _root
+        | let node : IndexNode => node
+      end
+      match node.bucket
+        | None =>
+          return size(node.right) + size(node.left)
+        | let bucket': List[IndexEntry] =>
+          bucket'.size()
+      end
 
-      fun ref list(node': (IndexNode | None) = None) : List[IndexEntry] =>
-        let node = match node'
-          | None => _root
-          | let node : IndexNode => node
-        end
-        match node.bucket
-          | None =>
-            let listRight: List[IndexEntry] = list(node.right)
-            listRight.prepend_list(list(node.left))
-            listRight
-          | let bucket': List[IndexEntry] =>
-            bucket'.clone()
-        end
+    fun ref list(node': (IndexNode | None) = None) : List[IndexEntry] =>
+      let node = match node'
+        | None => _root
+        | let node : IndexNode => node
+      end
+      match node.bucket
+        | None =>
+          let listRight: List[IndexEntry] = list(node.right)
+          listRight.prepend_list(list(node.left))
+          listRight
+        | let bucket': List[IndexEntry] =>
+          bucket'.clone()
+      end
+
+    fun ref array(node': (IndexNode | None) = None) : Array[IndexEntry] =>
+      let node = match node'
+        | None => _root
+        | let node : IndexNode => node
+      end
+      match node.bucket
+        | None =>
+          match (node.left, node.right)
+            | (let left': IndexNode, let right': IndexNode) =>
+              let arr1: Array[IndexEntry] = array(left')
+              let arr2: Array[IndexEntry] = array(right')
+              arr1.concat(arr2.values())
+              arr1
+          else
+            Array[IndexEntry](0)    
+          end
+        | let bucket': List[IndexEntry] =>
+          let arr: Array[IndexEntry] = Array[IndexEntry](bucket'.size())
+          for entry in bucket'.values() do
+            arr.push(entry)
+          end
+          arr
+      end

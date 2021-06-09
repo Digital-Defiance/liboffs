@@ -23,9 +23,10 @@ class iso _TestSection is UnitTest
     t.long_test(5000000000)
     try
       let blocks: List[Block[Nano]] val = recover
+        let bs: BlockService[Nano] = BlockService[Nano]
         let blocks': List[Block[Nano]] = List[Block[Nano]](20)
           for i in Range(0, 20) do
-            blocks'.push(Block[Nano]()?)
+            blocks'.push(bs.newBlock()?)
           end
           blocks'
       end
@@ -68,10 +69,11 @@ class iso _TestSection is UnitTest
             } val
 
             let newBlocks: List[Block[Nano]] val = recover
+              let bs: BlockService[Nano] = BlockService[Nano]
               let newBlocks': List[Block[Nano]] = List[Block[Nano]](4)
               for i in Range(2,6) do
                 try
-                  newBlocks'.push(Block[Nano]()?)
+                  newBlocks'.push(bs.newBlock()?)
                 else
                   t.fail("Block Creation Error")
                   t.complete(true)
@@ -169,7 +171,7 @@ class iso _TestSection is UnitTest
           var _section: Section[Nano] = section
           var _t: TestHelper = t
           var _indexes: Array[USize] val = indexes
-
+          var _bs: BlockService[Nano] iso = recover BlockService[Nano] end
           be apply() =>
             if _i < _indexes.size() then
               try
@@ -190,7 +192,7 @@ class iso _TestSection is UnitTest
               | let data' : Buffer val =>
                 try
                   if _i < _indexes.size() then
-                    let block: Block[Nano] = Block[Nano](data')?
+                    let block: Block[Nano] = _bs.newBlock(data')?
                     t.assert_true(block.data == _blocks(_i - 1)?.data)
                     _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
                   else

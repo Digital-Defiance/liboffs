@@ -6,6 +6,7 @@ use "Config"
 use "Buffer"
 
 primitive BlockNotFound
+
 primitive NewBlockCache[B: BlockType]
   fun apply(config: Config val, path': FilePath ): BlockCache[B] ? =>
     let name: String = iftype B <: Mega then
@@ -57,8 +58,30 @@ actor BlockCache [B: BlockType]
     else
       None
     end
+
   be _cacheBlock(block: Block[B] val) =>
     _blocks(block.hash) = block
+
+  be ranks(cb:{(Array[U64] iso)} val) =>
+    let ranks': Map[U64, Array[IndexEntry]] box =_index.ranks()
+    let rankKeys: Array[U64] iso = recover Array[U64](ranks'.size()) end
+    for rank in ranks'.keys() do
+      rankKeys.push(rank)
+    end
+    cb(consume rankKeys)
+
+  be hashesAtRank(rank: U64, cb: {(Array[Buffer val] iso)} val) =>
+    let ranks': Map[U64, Array[IndexEntry]] box =_index.ranks()
+    try
+      let entries: Array[IndexEntry] box = ranks'(rank)?
+      let hashes: Array[Buffer val] iso = recover Array[Buffer val] end
+      for entry in entries.values() do
+        hashes.push(entry.hash)
+      end
+      cb(consume hashes)
+    else
+      cb(recover Array[Buffer val]end)
+    end
 
   be put(block: Block[B], cb: {((None | SectionWriteError))} val) =>
     try
@@ -120,7 +143,6 @@ actor BlockCache [B: BlockType]
           cb(SectionReadError)
         end
       end
-
 
   be remove(hash: Buffer val, cb: {((None | SectionDeallocateError | BlockNotFound))} val) =>
     try

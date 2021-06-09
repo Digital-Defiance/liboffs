@@ -1,0 +1,38 @@
+{
+  "packages": [
+    "liboffs"
+  ],
+  "info": {
+    "description": "Client library for building Owner Free File System nodes",
+    "homepage": "https://github.com/vijayee/liboffs",
+    "license": "GPLv3",
+    "version": "0.0.1",
+    "name": "liboffs"
+  },
+  "deps": [
+    {
+      "locator": "github.com/vijayee/Base58.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/LRUCache.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Config.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Buffer.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Streams.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Blake2b.git",
+      "version": "0.0.1"
+    }
+  ]
+}

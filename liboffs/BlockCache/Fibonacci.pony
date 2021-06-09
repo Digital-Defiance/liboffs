@@ -41,16 +41,36 @@ class FibonacciHitCounter
   fun threshold() : U64 val =>
     _threshold
 
-  fun ref increment() =>
+  fun ref increment(): Bool =>
     _count = _count + 1
     if (_count >= _threshold) then
       _fib = _fib + 1
       _count = 0
       _threshold = Fibonacci(_fib)
+      return true
+    end
+    false
+
+  fun ref decrement(): Bool  =>
+    if _fib == 0 then
+      if _count == 0 then
+        return false
+      else
+        _count = _count - 1
+        return false
+      end
     end
 
-  fun ref decrement() =>
-    _threshold = Fibonacci(_fib)
+    let threshold': U64 = Fibonacci(_fib - 1)
+    if (_count - 1) < threshold' then
+      _threshold = threshold'
+      _count = threshold' - 1
+      _fib = _fib - 1
+      return true
+    else
+      _count = _count - 1
+      return false
+    end
 
   fun box eq(that: box->FibonacciHitCounter): Bool =>
     if ((that._fib == _fib) and (that._count == _count)) then

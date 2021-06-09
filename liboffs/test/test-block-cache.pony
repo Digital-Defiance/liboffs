@@ -14,7 +14,7 @@ actor BlockCacheTester[B: BlockType]
   var putTestComplete: Bool = false
   var getTestComplete: Bool = false
   var removeTestComplete: Bool = false
-
+  var rankTestComplete: Bool = false
   new create(t: TestHelper, blocks: List[Block[B]] val, path': FilePath, bc': BlockCache[B], cb: {()} val) =>
     _blocks = blocks
     _t = t
@@ -26,11 +26,22 @@ actor BlockCacheTester[B: BlockType]
       testPut()
     elseif getTestComplete == false then
       testGet()
+    elseif rankTestComplete == false then
+      testRanks()
     elseif removeTestComplete == false then
       testRemove()
     else
       _cb()
     end
+  be _receiveRanks(ranks': Array[U64] iso) =>
+    let ranks: Array[U64] box = consume ranks'
+    for i in ranks.values() do
+      _t.log(i.string())
+    end
+    rankTestComplete = true
+    apply()
+  be testRanks() =>
+    _bc.ranks({(ranks: Array[U64] iso) (that: BlockCacheTester[B] = this) => that._receiveRanks(consume ranks)})
 
   be testPut() =>
     if _i < _blocks.size() then
@@ -53,6 +64,7 @@ actor BlockCacheTester[B: BlockType]
       _i = 0
       apply()
     end
+
   be testGet() =>
     if _i < _blocks.size() then
       try
@@ -81,6 +93,7 @@ actor BlockCacheTester[B: BlockType]
       _i = 0
       apply()
     end
+
     be testRemove() =>
       if _i < _blocks.size() then
         try
@@ -88,7 +101,7 @@ actor BlockCacheTester[B: BlockType]
             match err
               | None =>
                 try
-                  _bc.get(_blocks(i)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc,_t) =>
+                    _bc.get(_blocks(i)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc,_t) =>
                     match block
                       | let block': Block[B] =>
                         _t.fail("Block found after Removal")
@@ -115,6 +128,7 @@ actor BlockCacheTester[B: BlockType]
         _i = 0
         apply()
       end
+
 class iso _TestBlockCache is UnitTest
   fun name(): String => "Testing Block Cache"
   fun exclusion_group(): String => "Block Cache"
@@ -122,9 +136,10 @@ class iso _TestBlockCache is UnitTest
     t.long_test(5000000000)
     try
       let blocks: List[Block[Standard]] val = recover
+        let bs: BlockService[Standard] = BlockService[Standard]
         let blocks': List[Block[Standard]] = List[Block[Standard]](20)
           for i in Range(0, 20) do
-            blocks'.push(Block[Standard]()?)
+            blocks'.push(bs.newBlock()?)
           end
           blocks'
       end

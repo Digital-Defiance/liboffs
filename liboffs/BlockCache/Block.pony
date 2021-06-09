@@ -3,6 +3,7 @@ use "time"
 use "random"
 use "collections"
 use "Buffer"
+use "Blake2b"
 
 primitive Mega
 primitive Nano
@@ -26,37 +27,51 @@ primitive BlockSize
       end
 
 primitive RandomBytes
-  fun apply(size: USize): Array[U8] =>
-    let now = Time.now()
-    var gen = Rand(now._1.u64(), now._2.u64())
+  fun apply(size: USize, gen: Rand): Array[U8] =>
     var bytes: Array[U8] = Array[U8](size)
     for j in Range(0, size) do
       bytes.push(gen.u8())
     end
     bytes
 
-class val Block [B: BlockType]
-  let hash: Buffer val
-  let data: Buffer val
-
-  new val create(data': Buffer val = recover val Buffer end) ? =>
+class BlockService [B: BlockType]
+  let gen: Rand
+  new create () =>
+    let now = Time.now()
+    gen = Rand(now._1.u64(), now._2.u64())
+  fun ref newBlock(data': Buffer val = recover val Buffer end): Block[B] ? =>
     let diff = BlockSize[B]() - data'.size()
     if (diff < 0) then
       error
     end
-    data = if (diff > 0) then
-      recover
-        let full : Array[U8] = Array[U8](BlockSize[B]())
-        let pad = RandomBytes(diff)
-        full.append(data'.data)
-        full.append(pad)
-        Buffer(full)
+    let data = if (diff > 0) then
+      let pad = RandomBytes(diff, gen)
+      let full : Array[U8] iso  =  recover Array[U8](BlockSize[B]())  end
+      for i in data'.values() do
+        full.push(i)
       end
+      for i in pad.values() do
+        full.push(i)
+      end
+      recover Buffer(consume full) end
     else
       data'
     end
+    Block[B](data)?
 
-    hash = Buffer.fromArray(SHA2Hash(data.data, 32))
+
+class val Block [B: BlockType]
+  let hash: Buffer val
+  let data: Buffer val
+
+  new val create(data': Buffer val) ? =>
+    if (data'.size() != BlockSize[B]()) then
+      error
+    end
+    data = data'
+    let hasher= Blake2b(32)
+    hasher.update(data.data)
+    hash = Buffer.fromArray(hasher.digest())
 
   new val _withHash(data': Buffer val, hash': Buffer val)? =>
     if data'.size() != BlockSize[B]() then

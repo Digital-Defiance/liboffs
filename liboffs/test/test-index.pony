@@ -8,10 +8,11 @@ class iso _TestIndex is UnitTest
   fun name(): String => "Testing Index Creation"
   fun apply(t: TestHelper) =>
     try
-      let block1: Block[Nano] val = Block[Nano]()?
-      let block2: Block[Nano] val = Block[Nano]()?
-      let block3: Block[Nano] val = Block[Nano]()?
-      let block4: Block[Nano] val = Block[Nano]()?
+      let bs: BlockService[Nano] = BlockService[Nano]
+      let block1: Block[Nano] val = bs.newBlock()?
+      let block2: Block[Nano] val = bs.newBlock()?
+      let block3: Block[Nano] val = bs.newBlock()?
+      let block4: Block[Nano] val = bs.newBlock()?
 
       let indexEntry1: IndexEntry = IndexEntry(block1.hash, 1, 0)
       let indexEntry2: IndexEntry = IndexEntry(block2.hash, 1, 1)
@@ -28,6 +29,11 @@ class iso _TestIndex is UnitTest
       t.assert_true(list.contains(indexEntry2))
       t.assert_true(list.contains(indexEntry3))
       t.assert_true(list.contains(indexEntry4))
+      let arr: Array[IndexEntry] = blockIndex.array()
+      t.assert_true(arr.contains(indexEntry1))
+      t.assert_true(arr.contains(indexEntry2))
+      t.assert_true(arr.contains(indexEntry3))
+      t.assert_true(arr.contains(indexEntry4))
       blockIndex.remove(indexEntry1.hash)?
       blockIndex.remove(indexEntry2.hash)?
       blockIndex.remove(indexEntry3.hash)?
@@ -37,14 +43,16 @@ class iso _TestIndex is UnitTest
       t.fail("Index Failed")
     end
 
+
 class iso _TestIndexJSON is UnitTest
   fun name(): String => "Testing Index JSON"
   fun apply(t: TestHelper) =>
     try
-      let block1: Block[Nano] val = Block[Nano]()?
-      let block2: Block[Nano] val = Block[Nano]()?
-      let block3: Block[Nano] val = Block[Nano]()?
-      let block4: Block[Nano] val = Block[Nano]()?
+      let bs: BlockService[Nano] = BlockService[Nano]
+      let block1: Block[Nano] val =  bs.newBlock()?
+      let block2: Block[Nano] val =  bs.newBlock()?
+      let block3: Block[Nano] val =  bs.newBlock()?
+      let block4: Block[Nano] val =  bs.newBlock()?
 
       let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/")?
 

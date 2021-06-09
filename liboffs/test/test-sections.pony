@@ -251,9 +251,10 @@ class iso _TestSections is UnitTest
     t.long_test(5000000000)
     try
       let blocks: List[Block[Nano]] val = recover
+        let bs: BlockService[Nano] = BlockService[Nano]
         let blocks': List[Block[Nano]] = List[Block[Nano]](20)
           for i in Range(0, 20) do
-            blocks'.push(Block[Nano]()?)
+            blocks'.push(bs.newBlock()?)
           end
           blocks'
       end
