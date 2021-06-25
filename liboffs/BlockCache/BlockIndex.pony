@@ -218,9 +218,7 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if entry.hash == entry'.hash then //Update
-            if entry'.hits.increment() then
-              _promoteRank(entry')
-            end
+            _increment(entry')
             return
           end
         end
@@ -240,24 +238,27 @@ class Index
         end
     end
 
-  fun ref _promoteRank(entry: IndexEntry) =>
-    try
-      var rank: Array[IndexEntry] = _ranks(entry.hits.fib() - 1)?
-      for i in Range(0, rank.size()) do
-        if rank(i)?.hash == entry.hash then
-          rank.delete(i)?
-          break
+  fun ref _increment(entry: IndexEntry) =>
+    if entry.hits.increment() then
+      try
+        var rank: Array[IndexEntry] = _ranks(entry.hits.fib() - 1)?
+        for i in Range(0, rank.size()) do
+          if rank(i)?.hash == entry.hash then
+            rank.delete(i)?
+            break
+          end
+        end
+        try
+          rank = _ranks(entry.hits.fib())?
+          rank.push(entry)
+        else
+          rank = Array[IndexEntry](1)
+          rank.push(entry)
+          _ranks.insert(entry.hits.fib(), rank)
         end
       end
-      try
-        rank = _ranks(entry.hits.fib())?
-        rank.push(entry)
-      else
-        rank = Array[IndexEntry](1)
-        rank.push(entry)
-        _ranks.insert(entry.hits.fib(), rank)
-      end
     end
+
 
   fun ref get(hash: Buffer val, node': (IndexNode | None) = None, index: USize = 0): IndexEntry ? =>
     let node : IndexNode = match node'
@@ -274,9 +275,7 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if hash == entry'.hash then
-            if entry'.hits.increment() then
-              _promoteRank(entry')
-            end
+            _increment(entry')
             return entry'
           end
         end
@@ -303,9 +302,7 @@ class Index
       | let bucket': List[IndexEntry] =>
         for entry' in bucket'.values() do
           if hash == entry'.hash then
-            if entry'.hits.increment() then
-              _promoteRank(entry')
-            end
+            _increment(entry')
             return entry'
           end
         end
@@ -401,7 +398,7 @@ class Index
               arr1.concat(arr2.values())
               arr1
           else
-            Array[IndexEntry](0)    
+            Array[IndexEntry](0)
           end
         | let bucket': List[IndexEntry] =>
           let arr: Array[IndexEntry] = Array[IndexEntry](bucket'.size())

@@ -34,8 +34,9 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
       _notifyError(Exception("Stream has been destroyed"))
     else
       try
-        _block = _bs.newBlock()?
-        _blockCache.put(_block,{(err:(None | SectionWriteError)) (recipe: RandomPopularity[B] tag = this) => recipe._releaseBlock(err)})
+        let block: Block[B] = _bs.newBlock()?
+        _block = block
+        _blockCache.put(block,{(err:(None | SectionWriteError)) (recipe: NewBlocksRecipe[B] tag = this) => recipe._releaseBlock(err)})
       else
         _notifyError(Exception("Failed to generate block"))
       end
@@ -56,22 +57,22 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
   be read(cb: {(Block[B])} val, size: (USize | None) = None) =>
     None
 
-  be piped(stream: WriteablePullStream[Array[U8] iso] tag) =>
+  be piped(stream: WriteablePullStream[Block[B]] tag) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
     else
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: NewBlocksRecipe[B] tag = this
         fun ref apply(ex: Exception) => _stream.destroy(ex)
       end
       stream.subscribe(consume errorNotify)
       let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: NewBlocksRecipe[B] tag = this
         fun ref apply() => _stream.close()
       end
       stream.subscribe(consume finishedNotify)
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: NewBlocksRecipe[B] tag = this
         fun ref apply () => _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify

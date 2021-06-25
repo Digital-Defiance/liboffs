@@ -2,6 +2,8 @@ use "ponytest"
 use "../BlockCache"
 use "../OFFStreams"
 use "Streams"
+use "../Global"
+use "files"
 
 class iso _TestNewBlocksRecipe is UnitTest
   fun name(): String => "Testing New Block Recipe"
@@ -16,38 +18,51 @@ class iso _TestNewBlocksRecipe is UnitTest
 
 actor _NewBlocksRecipeTester
   let _t: TestHelper
-  let _br: NewBlocksRecipe[Standard]
+  var _br: (NewBlocksRecipe[Standard] | None) = None
   let _arr: Array[Block[Standard]]
   new create(t: TestHelper) =>
     _t = t
-    _br = NewBlocksRecipe[Standard]
     _arr = Array[Block[Standard]](4)
-    let readableNotify: ReadableNotify iso = object iso is ReadableNotify
-      let test: _TestNewBlockRecipe = this
-      fun apply() =>
-        test._start()
+    try
+      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")?
+      let bc: BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
+      let br: NewBlocksRecipe[Standard] = NewBlocksRecipe[Standard](bc)
+      _br = br
+      let readableNotify: ReadableNotify iso = object iso is ReadableNotify
+        let test: _NewBlocksRecipeTester = this
+        fun apply() =>
+          test._start()
+      end
+      let dataNotify: DataNotify[Block[Standard]] iso = object iso is DataNotify[Block[Standard]]
+        let test: _NewBlocksRecipeTester = this
+        fun apply(block: Block[Standard]) =>
+          test._receiveBlock(block)
+      end
+      br.subscribe(consume dataNotify)
+      br.subscribe(consume readableNotify)
+    else
+      t.fail("Block Cache Creation Error")
+      t.complete(true)
     end
-    let dataNotify: DataNotify[Block[Standard]]= object iso is DataNotify[Block[Standard]]
-      let test: _TestNewBlockRecipe = this
-      fun apply(block: Block[Standard]) =>
-        test._receiveBlock(data)
+  be _start() =>
+    match _br
+      | let br: NewBlocksRecipe[Standard] =>
+        br.pull()
     end
-    _br.subscribe(dataNotify)
-    _br.subscribe(readableNotify)
-  be start() =>
-    _br.pull()
+
 
   be _receiveBlock(block: Block[Standard]) =>
     _arr.push(block)
-    if _arr.size() < 4 then
-      _br.pull()
-    else
-      _br.close()
-      _runTest()
+    match _br
+      | let br: NewBlocksRecipe[Standard] =>
+        if _arr.size() < 4 then
+            br.pull()
+        else
+          br.close()
+          _runTest()
+        end
     end
 
   fun _runTest() =>
     _t.complete_action("generated")
     _t.complete(true)
-
-    _

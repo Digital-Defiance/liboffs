@@ -6,7 +6,7 @@ use "../Global"
 
 actor BlockCacheTester[B: BlockType]
   let _t: TestHelper
-  let _blocks: List[Block[B]] val
+  let _blocks: Array[Block[B]] val
   let _cb: {()} val
   var _path: (FilePath | None) = None
   var _i: USize = 0
@@ -15,7 +15,7 @@ actor BlockCacheTester[B: BlockType]
   var getTestComplete: Bool = false
   var removeTestComplete: Bool = false
   var rankTestComplete: Bool = false
-  new create(t: TestHelper, blocks: List[Block[B]] val, path': FilePath, bc': BlockCache[B], cb: {()} val) =>
+  new create(t: TestHelper, blocks: Array[Block[B]] val, path': FilePath, bc': BlockCache[B], cb: {()} val) =>
     _blocks = blocks
     _t = t
     _cb = cb
@@ -135,9 +135,9 @@ class iso _TestBlockCache is UnitTest
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     try
-      let blocks: List[Block[Standard]] val = recover
+      let blocks: Array[Block[Standard]] val = recover
         let bs: BlockService[Standard] = BlockService[Standard]
-        let blocks': List[Block[Standard]] = List[Block[Standard]](20)
+        let blocks': Array[Block[Standard]] = Array[Block[Standard]](20)
           for i in Range(0, 20) do
             blocks'.push(bs.newBlock()?)
           end

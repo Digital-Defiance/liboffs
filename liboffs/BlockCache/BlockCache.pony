@@ -20,7 +20,7 @@ primitive NewBlockCache[B: BlockType]
     else
       ""
     end
-    let blocks: LRUCache[Buffer val, Block[B] val] iso = recover LRUCache[Buffer val, Block[B] val](config("lruSize")? as USize) end
+    let blocks: LRUCache[Buffer val, (Block[B] val, IndexEntry)] iso = recover LRUCache[Buffer val, (Block[B] val, IndexEntry)](config("lruSize")? as USize) end
     let path: FilePath = FilePath(path', name)?
     let index: Index iso = recover Index((config("indexNodeSize")? as USize), path)? end
     let sections: Sections[B] = Sections[B](path, (config("sectionSize")? as USize), (config("maxTupleSize")? as USize))// TODO: How large should a section be?
@@ -33,9 +33,9 @@ actor BlockCache [B: BlockType]
   var _sections: Sections[B]
   let _entryCheckout: MapIs[Buffer val, IndexEntry] = MapIs[Buffer val, IndexEntry]
   var _config: Config val
-  let _blocks: LRUCache[Buffer val, Block[B] val]
+  let _blocks: LRUCache[Buffer val, (Block[B] val, IndexEntry)]
 
-  new create(config': Config val, blocks': LRUCache[Buffer val, Block[B] val] iso, index': Index iso, sections': Sections[B]) =>
+  new create(config': Config val, blocks': LRUCache[Buffer val, (Block[B] val, IndexEntry)] iso, index': Index iso, sections': Sections[B]) =>
     _config = config'
     _blocks = consume blocks'
     _index = consume index'
@@ -60,7 +60,10 @@ actor BlockCache [B: BlockType]
     end
 
   be _cacheBlock(block: Block[B] val) =>
-    _blocks(block.hash) = block
+    try
+      let entry: IndexEntry = _entryCheckout(block.hash)?
+      _blocks(block.hash) = (block, entry)
+    end
 
   be ranks(cb:{(Array[U64] iso)} val) =>
     let ranks': Map[U64, Array[IndexEntry]] box =_index.ranks()
@@ -113,12 +116,14 @@ actor BlockCache [B: BlockType]
 
   be get(hash: Buffer val, cb: {((Block[B] | SectionReadError | BlockNotFound))} val) =>
     match _blocks(hash)
-      | let block: Block[B] =>
+      | (let block: Block[B], let entry: IndexEntry ) =>
+        _index._increment(entry)
         cb(block)
       | None =>
         try
           match _index.find(hash)?
             | let entry: IndexEntry =>
+              _entryCheckout(hash) = entry
               let cb' = {(data: (Buffer val | SectionReadError)) (blockCache: BlockCache[B] = this) =>
                 match data
                   | SectionReadError =>

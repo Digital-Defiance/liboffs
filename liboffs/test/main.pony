@@ -19,3 +19,4 @@ actor Main is TestList
     test(_TestSections)
     test(_TestBlockCache)
     test(_TestNewBlocksRecipe)
+    test(_TestRandomPopularityRecipe)

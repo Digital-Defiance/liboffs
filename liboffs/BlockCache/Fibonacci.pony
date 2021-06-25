@@ -38,12 +38,15 @@ class FibonacciHitCounter
   fun count() : U64 val =>
     _count
 
+  fun string(): String val =>
+    _fib.string() + "F" + _count.string() + "C"
+
   fun threshold() : U64 val =>
     _threshold
 
   fun ref increment(): Bool =>
     _count = _count + 1
-    if (_count >= _threshold) then
+    if (_count > _threshold) then
       _fib = _fib + 1
       _count = 0
       _threshold = Fibonacci(_fib)
@@ -60,12 +63,10 @@ class FibonacciHitCounter
         return false
       end
     end
-
-    let threshold': U64 = Fibonacci(_fib - 1)
-    if (_count - 1) < threshold' then
-      _threshold = threshold'
-      _count = threshold' - 1
+    if _count == 0 then
       _fib = _fib - 1
+      _threshold = Fibonacci(_fib)
+      _count = _threshold
       return true
     else
       _count = _count - 1

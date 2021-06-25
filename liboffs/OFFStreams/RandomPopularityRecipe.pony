@@ -4,10 +4,11 @@ use "../BlockCache"
 use "Streams"
 use "Buffer"
 use "Exception"
+use "collections"
 
-actor RandomPopularity[B: BlockType] is BlockRecipe[B]
+actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
   var _isDestroyed: Bool = false
-  var _isReadable: Bool = false
+  var _isReadable: Bool = true
   let _blockCache: BlockCache[B]
   var _ranks: (Array[U64] | None) = None
   var _currentRankIndex: USize = 0
@@ -38,9 +39,9 @@ actor RandomPopularity[B: BlockType] is BlockRecipe[B]
       _notifyError(Exception("Stream has been destroyed"))
     else
       try
-        _nextHash(_ranks as Array[U8])
+        _nextHash(_ranks as Array[U64])
       else
-        _blockCache.ranks({(ranks: Array[U64] iso) (recipe: RandomPopularity[B] tag = this) =>  recipe._recieveRanks(consume ranks)} val)
+        _blockCache.ranks({(ranks: Array[U64] iso) (recipe: RandomPopularityRecipe[B] tag = this) =>  recipe._receiveRanks(consume ranks)} val)
       end
     end
 
@@ -48,70 +49,98 @@ actor RandomPopularity[B: BlockType] is BlockRecipe[B]
     try
        _nextBlock(_currentRankHashes as Array[Buffer val])
     else
-      _blockCache.hashesAtRank(try ranks'(_currentRankIndex)? else 0 end, {(hashes: Array[Buffer val] iso) (recipe: RandomPopularity[B] tag = this) =>  recipe._receiveRankHashes(consume hashes)})
+      try
+        _blockCache.hashesAtRank(ranks'(_currentRankIndex)?, {(hashes: Array[Buffer val] iso) (recipe: RandomPopularityRecipe[B] tag = this) =>  recipe._receiveRankHashes(consume hashes)})
+      else
+        _notifyComplete()
+        _close()
+      end
     end
 
-  fun ref _nextBlock(currentRankHashes': Array[Buffer val]) =>
-   let index: USize = gen.usize() % _currentRankHashes.size()
-   try
-      let hash: Buffer val = _currentRankHashes(index)?
-      _blockCache.get(hash,{(block: (Block[B] | SectionReadError | BlockNotFound)) (recipe: RandomPopularity[B] tag = this) => recipe._receiveBlock(block)} val)
-      _currentRankHashes.remove(index)
-      if _currentRankHashes.size() <= 0 then
-        _currentRankHashes = None
-        _currentRankIndex = _currentRankIndex + 1
-        match _ranks
-          | let ranks': Array[U64] =>
-            if _currentRankIndex > _ranks.size() then
-            _notifyComplete()
-            end
+  fun ref _nextBlock(currentRankHashes: Array[Buffer val]) =>
+     let index: USize = gen.usize() % currentRankHashes.size()
+     try
+        let hash: Buffer val = currentRankHashes(index)?
+        _blockCache.get(hash,{(block: (Block[B] | SectionReadError | BlockNotFound)) (recipe: RandomPopularityRecipe[B] tag = this) =>
+          recipe._receiveBlock(block)} val)
+        currentRankHashes.remove(index, 1)
+        if currentRankHashes.size() <= 0 then
+          _currentRankHashes = None
+          _currentRankIndex = _currentRankIndex - 1
+          match _ranks
+            | let ranks': Array[U64] =>
+              _nextHash(ranks')
           end
+        end
+      else
+        destroy(Exception("Array index out of bounds"))
       end
-    else
-      destroy(Exception("Array index out of bounds"))
-    end
 
 
   be read(cb: {(Block[B])} val, size: (USize | None) = None) =>
     None
 
-  be _recieveRanks(ranks: Array[U64] iso) =>
-    _ranks = consume ranks
-    try _nextHash(_ranks as Array[U64]) end
+  be _receiveRanks(ranks: Array[U64] iso) =>
+    var ranks': Array[U64] = consume ranks
+    ranks' = Sort[Array[U64], U64](ranks')
+    _currentRankIndex = ranks'.size() - 1
+    let rankStr: String ref = String(ranks'.size())
+    for i in ranks'.values() do
+      if rankStr.size() > 0 then
+        rankStr.append(",")
+      end
+      rankStr.append(i.string())
+    end
+    _ranks = ranks'
+    if ranks'.size() <= 0 then
+      _notifyComplete()
+      _close()
+    else
+      _nextHash(ranks')
+    end
 
-  be _recieveRankHashes(hashes: Array[Buffer val] iso) =>
-    _currentRankHashes = consume hashes
-    try _nextBlock(_currentRankHashes as Array[Buffer val]) end
+  be _receiveRankHashes(hashes: Array[Buffer val] iso) =>
+    let currentRankHashes: Array[Buffer val] = consume hashes
+    _currentRankHashes = currentRankHashes
+    if currentRankHashes.size() <= 0 then
+      _currentRankHashes = None
+      _currentRankIndex = _currentRankIndex - 1
+      match _ranks
+        | let ranks': Array[U64] =>
+          _nextHash(ranks')
+      end
+    else
+      _nextBlock(currentRankHashes)
+    end
 
   be _receiveBlock(block: (Block[B] | SectionReadError | BlockNotFound)) =>
     match block
       | let block': Block[B] =>
-        _notifyData(Block[B])
+        _notifyData(block')
       | SectionReadError =>
         destroy(Exception("Section Read Error"))
       | BlockNotFound =>
         destroy(Exception("Block Not Found"))
     end
 
-  be piped(stream: WriteablePullStream[Array[U8] iso] tag) =>
+  be piped(stream: WriteablePullStream[Block[B]] tag) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
     else
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: RandomPopularityRecipe[B] tag = this
         fun ref apply(ex: Exception) => _stream.destroy(ex)
       end
       stream.subscribe(consume errorNotify)
       let finishedNotify: FinishedNotify iso = object iso is FinishedNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: RandomPopularityRecipe[B] tag = this
         fun ref apply() => _stream.close()
       end
       stream.subscribe(consume finishedNotify)
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
-        let _stream: ReadablePullStream[Array[U8] iso] tag = this
+        let _stream: RandomPopularityRecipe[B] tag = this
         fun ref apply () => _stream.close()
       end
-      let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
       _notifyPiped()
     end

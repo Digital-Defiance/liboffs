@@ -16,23 +16,24 @@ class iso _TestFibonacciHitCounter is UnitTest
   fun apply(t: TestHelper) =>
     let counter1 : FibonacciHitCounter = FibonacciHitCounter
     let counter2 : FibonacciHitCounter = FibonacciHitCounter
-    for i in Range(0, 240) do
-      if (i < 50) then
-        counter1.increment()
+    let fibInc = {(num: U64, counter: FibonacciHitCounter): Bool =>
+      var result: Bool = false
+      for i in Range(0, Fibonacci(num).usize() + 1) do
+        result = counter.increment()
       end
-      counter2.increment()
+      result
+    } val
+    for i in Range(0, 10) do
+      t.assert_true(fibInc(i.u64(), counter1))
     end
+    for i in Range(0, 20) do
+      t.assert_true(fibInc(i.u64(), counter2))
+    end
+
     t.assert_true(counter1 < counter2)
     t.assert_true(counter2 > counter1)
     t.assert_false(counter2 == counter1)
-    t.assert_true(counter2 != counter1)
-    for i in Range(0, 240 - 50) do
-      counter1.increment()
-    end
-    t.assert_true(counter2 == counter1)
-    t.assert_false(counter1 < counter2)
-    t.assert_false(counter2 > counter1)
-    t.assert_false(counter2 != counter1)
+    t.assert_true(counter2 != counter1)    
 
 class iso _TestFibonacciHitCounterJSON is UnitTest
   fun name(): String => "Testing Fibonacci Hit Counter JSON"
