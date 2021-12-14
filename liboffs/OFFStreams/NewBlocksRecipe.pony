@@ -12,7 +12,6 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
   var _currentRankHashes: (Array[Buffer val] | None) = None
   let _subscribers': Subscribers
   let _bs: BlockService[B]
-  var _block:(Block[B] | None) = None
 
   new create(blockCache: BlockCache[B]) =>
     _blockCache = blockCache
@@ -35,24 +34,18 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
     else
       try
         let block: Block[B] = _bs.newBlock()?
-        _block = block
-        _blockCache.put(block,{(err:(None | SectionWriteError)) (recipe: NewBlocksRecipe[B] tag = this) => recipe._releaseBlock(err)})
+        _blockCache.put(block,{(err:(None | SectionWriteError)) (recipe: NewBlocksRecipe[B] tag = this, block': Block[B] = block) => recipe._releaseBlock(block', err)})
       else
         _notifyError(Exception("Failed to generate block"))
       end
     end
 
-  be _releaseBlock(err: (None | SectionWriteError)) =>
+  be _releaseBlock(block: Block[B], err: (None | SectionWriteError)) =>
     match err
       | SectionWriteError =>
         _notifyError(Exception("Failed to store block"))
     else
-      try
-        _notifyData(_block as Block[B])
-        _block = None
-      else
-        _notifyError(Exception("Block Unavailable"))
-      end
+      _notifyData(block)
     end
   be read(cb: {(Block[B])} val, size: (USize | None) = None) =>
     None

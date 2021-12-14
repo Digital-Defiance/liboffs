@@ -4,6 +4,7 @@ use "../OFFStreams"
 use "Streams"
 use "../Global"
 use "files"
+use "Exception"
 
 class iso _TestNewBlocksRecipe is UnitTest
   fun name(): String => "Testing New Block Recipe"
@@ -11,58 +12,69 @@ class iso _TestNewBlocksRecipe is UnitTest
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     t.expect_action("generated")
-    let tests: _NewBlocksRecipeTester = _NewBlocksRecipeTester(t)
+    let tests: _NewBlocksRecipeTester[Standard] = _NewBlocksRecipeTester[Standard](t)
 
-
-
-
-actor _NewBlocksRecipeTester
+actor _NewBlocksRecipeTester[B: BlockType]
   let _t: TestHelper
-  var _br: (NewBlocksRecipe[Standard] | None) = None
-  let _arr: Array[Block[Standard]]
+  var _br: (NewBlocksRecipe[B] | None) = None
+  let _arr: Array[Block[B]]
   new create(t: TestHelper) =>
     _t = t
-    _arr = Array[Block[Standard]](4)
+    _arr = Array[Block[B]](4)
     try
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")?
-      let bc: BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
-      let br: NewBlocksRecipe[Standard] = NewBlocksRecipe[Standard](bc)
+      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let bc: BlockCache[B] = NewBlockCache[B](DefaultConfig(), path)?
+      let br: NewBlocksRecipe[B] = NewBlocksRecipe[B](bc)
       _br = br
+      let errorNotify: ErrorNotify iso = object iso is ErrorNotify
+        let test: _NewBlocksRecipeTester[B] = this
+        let t: TestHelper = _t
+        fun apply(ex: Exception) =>
+          t.fail(ex.string())
+          t.complete(true)
+      end
       let readableNotify: ReadableNotify iso = object iso is ReadableNotify
-        let test: _NewBlocksRecipeTester = this
+        let test: _NewBlocksRecipeTester[B]  = this
         fun apply() =>
           test._start()
       end
-      let dataNotify: DataNotify[Block[Standard]] iso = object iso is DataNotify[Block[Standard]]
-        let test: _NewBlocksRecipeTester = this
-        fun apply(block: Block[Standard]) =>
+      let dataNotify: DataNotify[Block[B]] iso = object iso is DataNotify[Block[B]]
+        let test: _NewBlocksRecipeTester[B]  = this
+        fun apply(block: Block[B]) =>
           test._receiveBlock(block)
+      end
+      let closeNotify: CloseNotify iso = object iso is CloseNotify
+        let t: TestHelper = _t
+        let test: _NewBlocksRecipeTester[B] = this
+        fun apply() =>
+          test._runTest()
       end
       br.subscribe(consume dataNotify)
       br.subscribe(consume readableNotify)
+      br.subscribe(consume closeNotify)
+      br.subscribe(consume errorNotify)
     else
       t.fail("Block Cache Creation Error")
       t.complete(true)
     end
   be _start() =>
     match _br
-      | let br: NewBlocksRecipe[Standard] =>
+      | let br: NewBlocksRecipe[B] =>
         br.pull()
     end
 
 
-  be _receiveBlock(block: Block[Standard]) =>
+  be _receiveBlock(block: Block[B]) =>
     _arr.push(block)
     match _br
-      | let br: NewBlocksRecipe[Standard] =>
+      | let br: NewBlocksRecipe[B] =>
         if _arr.size() < 4 then
             br.pull()
         else
           br.close()
-          _runTest()
         end
     end
 
-  fun _runTest() =>
+  be _runTest() =>
     _t.complete_action("generated")
     _t.complete(true)

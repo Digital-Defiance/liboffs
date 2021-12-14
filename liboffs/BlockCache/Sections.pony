@@ -22,9 +22,9 @@ actor Sections [B:BlockType]
     _roundRobin = recover List[USize](_maxTupleSize) end
     _size = size
     try
-      let path =  FilePath(path', "sections/")?
-      _dataPath = FilePath(path, "data/")?
-      _metaPath = FilePath(path, "meta/")?
+      let path =  FilePath.from(path', "sections/")?
+      _dataPath = FilePath.from(path, "data/")?
+      _metaPath = FilePath.from(path, "meta/")?
       match (_dataPath, _metaPath)
         | (let dataPath: FilePath, let metaPath: FilePath) =>
           dataPath.mkdir()
@@ -32,7 +32,7 @@ actor Sections [B:BlockType]
           let metaDir = Directory(metaPath)?
           _nextId = metaDir.entries()?.size() + 1
       end
-      _robinPath = FilePath(path, ".robin")?
+      _robinPath = FilePath.from(path, ".robin")?
 
       match OpenFile((_robinPath as FilePath))
         | let robinFile: File =>
@@ -72,9 +72,9 @@ actor Sections [B:BlockType]
 
   be _full(sectionId: USize) =>
     _roundRobin = _roundRobin.filter({(section) : Bool => section != sectionId} val)
-    let id: USize = _nextId = _nextId + 1
-    if _roundRobin.size() < _maxTupleSize then
+    while _roundRobin.size() < _maxTupleSize do
       try
+        let id: USize = _nextId = _nextId + 1
         let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, id)
         _roundRobin.unshift(id)
         _sections(id) = section'
@@ -94,23 +94,26 @@ actor Sections [B:BlockType]
     try
       let sectionId: USize = _roundRobin.shift()?
       _roundRobin.push(sectionId)
-      match _sections(sectionId)
+      let section: Section[B] = match _sections(sectionId)
         | None =>
-          cb(SectionWriteError)
-        | let section: Section[B] =>
-          let cb' = {(index: ((USize, Bool) | SectionWriteError)) (sectionId, sections: Sections[B] = this) =>
-            match index
-              | (let index': USize, let full: Bool) =>
-                if full then
-                  sections._full(sectionId)
-                end
-                cb((sectionId, index'))
-              else
-                cb(SectionWriteError)
-            end
-          } val
-          section.write(block, cb')
+          let section': Section[B] = Section[B]((_dataPath as FilePath), (_metaPath as FilePath), _size, sectionId)
+          _sections(sectionId) = section'
+          section'
+        | let section': Section[B] =>
+          section'
       end
+      let cb' = {(index: ((USize, Bool) | SectionWriteError)) (sectionId, sections: Sections[B] = this) =>
+        match index
+          | (let index': USize, let full: Bool) =>
+            if full then
+              sections._full(sectionId)
+            end
+            cb((sectionId, index'))
+          else
+            cb(SectionWriteError)
+        end
+      } val
+      section.write(block, cb')
     else
       cb(SectionWriteError)
     end

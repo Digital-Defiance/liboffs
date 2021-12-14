@@ -31,7 +31,7 @@ actor SectionsTester[B: BlockType]
       ""
     end
 
-    _path = try FilePath(path', name)? else None end
+    _path = try FilePath.from(path', name)? else None end
     match _path
       | let path :FilePath => path.mkdir()
         _index = try Index(25, path)? else None end
@@ -258,8 +258,8 @@ class iso _TestSections is UnitTest
           end
           blocks'
       end
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")?
-      let offDir = Directory(FilePath(t.env.root as AmbientAuth, "offs/")?)?
+      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let offDir = Directory(FilePath(t.env.root as AmbientAuth, "offs/"))?
       offDir.remove("blocks")
       let sectionTester = SectionsTester[Nano](4, t, blocks, path, {() =>
         t.complete(true)

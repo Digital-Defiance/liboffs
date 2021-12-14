@@ -142,9 +142,9 @@ class Index
   new create(bucketSize': USize, path': FilePath)? =>
     _bucketSize = bucketSize'
     _root = IndexNode._create(List[IndexEntry](_bucketSize))
-    let path = FilePath(path', "index/")?
+    let path = FilePath.from(path', "index/")?
     path.mkdir()
-    _path = FilePath(path, ".index")?
+    _path = FilePath.from(path, ".index")?
     _ranks = Map[U64, Array[IndexEntry]]
 
     match OpenFile(_path)
@@ -161,7 +161,7 @@ class Index
   new from(root': IndexNode, bucketSize': USize, path': FilePath)? =>
     _root = root'
     _bucketSize = bucketSize'
-    let path = FilePath(path', ".index")?
+    let path = FilePath.from(path', ".index")?
     path.mkdir()
     _path = path
     _ranks = Map[U64, Array[IndexEntry]]
@@ -169,7 +169,7 @@ class Index
   new fromJSON(obj: JsonObject val, path': FilePath)? =>
     _root = IndexNode.fromJSON(obj.data("root")? as JsonObject val)?
     _bucketSize = (obj.data("bucketSize")? as F64).usize()
-    let path = FilePath(path', ".index")?
+    let path = FilePath.from(path', ".index")?
     path.mkdir()
     _path = path
     _ranks = Map[U64, Array[IndexEntry]]

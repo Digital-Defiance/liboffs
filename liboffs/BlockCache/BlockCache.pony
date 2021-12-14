@@ -21,7 +21,7 @@ primitive NewBlockCache[B: BlockType]
       ""
     end
     let blocks: LRUCache[Buffer val, (Block[B] val, IndexEntry)] iso = recover LRUCache[Buffer val, (Block[B] val, IndexEntry)](config("lruSize")? as USize) end
-    let path: FilePath = FilePath(path', name)?
+    let path: FilePath = FilePath.from(path', name)?
     let index: Index iso = recover Index((config("indexNodeSize")? as USize), path)? end
     let sections: Sections[B] = Sections[B](path, (config("sectionSize")? as USize), (config("maxTupleSize")? as USize))// TODO: How large should a section be?
     BlockCache[B](config, consume blocks, consume index, sections)

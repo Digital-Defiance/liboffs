@@ -41,8 +41,8 @@ actor Section [B: BlockType]
     id = id'
 
     try
-      _path = FilePath(path', id.string())?
-      _metaPath = FilePath(metaPath, id.string())?
+      _path = FilePath.from(path', id.string())?
+      _metaPath = FilePath.from(metaPath, id.string())?
       match OpenFile(_metaPath as FilePath)
         | let metaFile: File =>
           let text: String = metaFile.read_string(metaFile.size())
@@ -175,7 +175,8 @@ actor Section [B: BlockType]
 
   fun full(): Bool =>
     match _fragments
-    | None => true
+    | None =>
+      true
     else
       false
     end
