@@ -1,0 +1,32 @@
+{
+  "locks": [
+    {
+      "locator": "github.com/vijayee/Config.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/LRUCache.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Exception.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Base58.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Buffer.git",
+      "revision": "0.0.6"
+    },
+    {
+      "locator": "github.com/vijayee/Blake2b.git",
+      "revision": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Streams.git",
+      "revision": "0.0.1"
+    }
+  ]
+}
