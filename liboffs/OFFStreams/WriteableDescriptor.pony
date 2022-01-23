@@ -26,8 +26,9 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val]
   var _sentDescriptor: Bool = false
   var _descriptorPad: USize
   var _i: USize = 0
+  var _bs: BlockService[B]
 
-  new create(bc: BlockCache[B], descriptorPad: USize, tupleSize: USize, dataLength: USize) =>
+  new create(bc: BlockCache[B], descriptorPad: USize, tupleSize: USize, dataLength: USize, bs: BlockService[B] iso = recover BlockService[B] end) =>
     _subscribers' = Subscribers(3)
     _bc = bc
     _tupleSize = tupleSize
@@ -37,6 +38,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val]
     _cutPoint = ((_blockSize / _descriptorPad)  * _descriptorPad)
     _dataLength = dataLength
     _blockCount = _dataLength / _blockSize
+    _bs = consume bs
 
 
   fun ref _subscriberCount[A: Notify](): USize =>
@@ -184,18 +186,25 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val]
     if _descriptor.size() > 0 then
       descBlockBytes.push(_descriptor.slice())
     end
-    try
-      var prior: Buffer val = recover val Buffer end
-      for i in Range[I64](descBlockBytes.size().i64(), 0, -1) do
+    var prior: Buffer val = recover val Buffer end
+    for i in Range[I64](descBlockBytes.size().i64() -1, -1, -1) do
+      try
         descBlockBytes(i.usize())?.append(prior)
-        let descBlock = Block[B](descBlockBytes(i.usize())?.clone())?
+      else
+        destroy(Exception("Failure to append descriptor data"))
+        return
+      end
+      try
+        let descBlock = _bs.newBlock(descBlockBytes(i.usize())?.clone())?
         _descBlockArr.unshift(descBlock)
         prior = descBlock.hash
+      else
+          destroy(Exception("Failure to create descriptor block"))
+          return
       end
-      _putDescriptorBlocks()
-    else
-      destroy(Exception("Failure to create descriptor blocks"))
     end
+    _putDescriptorBlocks()
+
 
   fun ref _close() =>
     if not _destroyed() then

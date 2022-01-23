@@ -34,7 +34,7 @@ actor _WriteableDescriptorTester[B: BlockType]
     _t = t
     _tuple = recover Array[Buffer val](3) end
     try
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
       let conf: Config val = DefaultConfig()
       let descriptorPad = conf("descriptorPad")? as USize
       let tupleSize = conf("tupleSize")? as USize

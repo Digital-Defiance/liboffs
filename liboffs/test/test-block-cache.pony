@@ -143,8 +143,8 @@ class iso _TestBlockCache is UnitTest
           end
           blocks'
       end
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
-      let offDir = Directory(FilePath(t.env.root as AmbientAuth, "offs/"))?
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
       offDir.remove("blocks")
       let bc': BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
       let bc = BlockCacheTester[Standard](t, blocks, path, bc', {() =>

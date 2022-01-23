@@ -27,26 +27,11 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     _ori = ori
     _blockSize = BlockSize[B]()
     _tupleCount = (_ori.fileSize/ _blockSize) + (if (_ori.fileSize % _blockSize) > 0 then 1 else 0 end)
-    _cutPoint = _blockSize / descriptorPad
+    _cutPoint = ((_blockSize / descriptorPad)  * descriptorPad)
     _offsetTuple = (_ori.fileOffset / _blockSize) + (if (_ori.fileSize % _blockSize) > 0 then 1 else 0 end)
     _descriptorPad = descriptorPad
     _bc = bc
     _offsetRemainder = Buffer(_ori.tupleSize * _descriptorPad)
-
-  fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
-   if _destroyed() then
-     _notifyError(Exception("Stream has been destroyed"))
-   else
-     let subscribers: Subscribers = _subscribers()
-     let notify': Notify = consume notify
-     try
-       subscribers(notify')?.push((notify', once))
-     else
-       let arr: Subscriptions = Subscriptions(10)
-       arr.push((notify', once))
-       subscribers(notify') =  arr
-     end
-   end
 
   fun readable(): Bool =>
     _isReadable
@@ -62,6 +47,9 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
 
   fun ref _subscribers() : Subscribers =>
     _subscribers'
+
+  fun ref _autoPush(): Bool =>
+    true
 
   be pipe(stream: WriteablePushStream[Array[Buffer val] val] tag) =>
     if _destroyed() then
@@ -113,7 +101,6 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     end
     if _offsetTuple > 0 then
       if _tupleCounter < _offsetTuple then
-
         _tupleCounter = (descriptor'.size() - _descriptorPad) / (_descriptorPad * _ori.tupleSize)
         let cut: USize = (descriptor'.size() - _descriptorPad) - ((descriptor'.size() - _descriptorPad) % (_descriptorPad * _ori.tupleSize))
         _offsetRemainder = descriptor'.slice(cut, descriptor'.size() - _descriptorPad)
@@ -142,43 +129,46 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
           | let currentDescriptor: Buffer =>
             currentDescriptor
         end
-        while currentDescriptor.size() <= 0  do
-          let currentTuple: Array[Buffer val] iso = try
+        while currentDescriptor.size() > 0  do
+          var currentTuple: Array[Buffer val] iso = try
             ((_currentTuple = None) as Array[Buffer val] iso^ )
           else
             recover Array[Buffer val](_ori.tupleSize) end
           end
 
+          var cursor: (Buffer val, Buffer) = _moveToOffset(currentDescriptor)
+          var key: Buffer val = cursor._1
+          currentDescriptor = cursor._2
           while currentTuple.size() < _ori.tupleSize do
-            let cursor: (Buffer val, Buffer) = _moveToOffset(currentDescriptor)
-            let key: Buffer val = cursor._1
-            currentDescriptor = cursor._2
             if currentDescriptor.size() <= 0 then
               _getDescriptor(key)
-              break
+              _currentTuple = consume currentTuple
+              _currentDescriptor = None
+              return
             else
               currentTuple.push(key)
+              if currentTuple.size() == _ori.tupleSize then
+                break
+              else
+                cursor = _moveToOffset(currentDescriptor)
+                key = cursor._1
+                currentDescriptor = cursor._2
+              end
             end
           end
-
-
-          if currentTuple.size() == _ori.tupleSize then
-            match cb
-              | None =>
-                _notifyData(consume currentTuple)
-              | let cb': {(Array[Buffer val] val)} val =>
-                cb'(consume currentTuple)
-            end
-            _tupleCounter = _tupleCounter + 1
-            if _tupleCounter >= _tupleCount then
-              _notifyComplete()
-              close()
-            end
-          else
-            _currentTuple = consume currentTuple
+          match cb
+            | None =>
+              _notifyData(consume currentTuple)
+            | let cb': {(Array[Buffer val] val)} val =>
+              cb'(consume currentTuple)
+          end
+          _tupleCounter = _tupleCounter + 1
+          if _tupleCounter >= _tupleCount then
+            _notifyComplete()
+            close()
+            return
           end
         end
-        _currentDescriptor = None
     end
 
   be _getDescriptor(key: Buffer val) =>

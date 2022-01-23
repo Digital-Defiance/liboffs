@@ -13,11 +13,11 @@ class iso _TestReadableDescriptor is UnitTest
   fun name(): String => "Testing Readable Descriptor"
   fun exclusion_group(): String => "Block Cache"
   fun apply(t: TestHelper) =>
-    t.long_test(20000000000)
+    t.long_test(6000000000000)
     t.expect_action("generated")
     t.expect_action("descriptor")
     t.expect_action("received")
-    let tests: _WriteableDescriptorTester[Mini] = _WriteableDescriptorTester[Mini](t)
+    let tests: _ReadableDescriptorTester[Mini] = _ReadableDescriptorTester[Mini](t)
     tests._start()
 
 
@@ -41,16 +41,17 @@ actor _ReadableDescriptorTester[B: BlockType]
     _t = t
     _tuple = recover Array[Buffer val](3) end
     try
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
       let conf: Config val = DefaultConfig()
       _descriptorPad = conf("descriptorPad")? as USize
       let tupleSize = conf("tupleSize")? as USize
+      _tupleSize = tupleSize
       let blockSize = BlockSize[B]()
-      _size = blockSize / (_descriptorPad as USize)
+      _size = 45
       _allBlockHashes = recover Array[Buffer val](_size) end
       _bc = NewBlockCache[B](conf, path)?
       let br: NewBlocksRecipe[B] = NewBlocksRecipe[B](_bc as BlockCache[B])
-      _dataLength = (_size + 20) * blockSize
+      _dataLength = _size * blockSize
       let wd = WriteableDescriptor[B](_bc as BlockCache[B], _descriptorPad as USize, tupleSize, _dataLength as USize)
       _wd = wd
       _br = br
@@ -102,6 +103,7 @@ actor _ReadableDescriptorTester[B: BlockType]
           t.fail(ex.string())
           t.complete(true)
       end
+
       wd.subscribe(consume descriptorCloseNotify)
       wd.subscribe(consume descriptorNotify)
       wd.subscribe(consume descriptorErrorNotify)
@@ -152,7 +154,6 @@ actor _ReadableDescriptorTester[B: BlockType]
       end
       if _i >= (_allBlockHashes as Array[Buffer val] iso).size() then
         _t.complete_action("received")
-        _t.fail("happened")
         _t.complete(true)
       end
     else

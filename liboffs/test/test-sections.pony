@@ -258,8 +258,8 @@ class iso _TestSections is UnitTest
           end
           blocks'
       end
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
-      let offDir = Directory(FilePath(t.env.root as AmbientAuth, "offs/"))?
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
       offDir.remove("blocks")
       let sectionTester = SectionsTester[Nano](4, t, blocks, path, {() =>
         t.complete(true)

@@ -22,7 +22,7 @@ actor _NewBlocksRecipeTester[B: BlockType]
     _t = t
     _arr = Array[Block[B]](4)
     try
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
       let bc: BlockCache[B] = NewBlockCache[B](DefaultConfig(), path)?
       let br: NewBlocksRecipe[B] = NewBlocksRecipe[B](bc)
       _br = br

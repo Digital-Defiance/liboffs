@@ -108,7 +108,7 @@ actor _RandomPopularityRecipeTester
     _t = t
     _arr = Array[Block[Standard]](4)
     try
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/")
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
       let bc: BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
       let br: RandomPopularityRecipe[Standard] = RandomPopularityRecipe[Standard](bc)
       _br = br

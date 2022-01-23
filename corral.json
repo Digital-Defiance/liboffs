@@ -3,7 +3,7 @@
     "liboffs"
   ],
   "info": {
-    "description": "Client library for building Owner Free File System nodes",
+    "description": "Library for building Owner Free File System nodes",
     "homepage": "https://github.com/vijayee/liboffs",
     "license": "GPLv3",
     "version": "0.0.1",
@@ -28,10 +28,14 @@
     },
     {
       "locator": "github.com/vijayee/Streams.git",
-      "version": "0.0.1"
+      "version": "0.0.2"
     },
     {
       "locator": "github.com/vijayee/Blake2b.git",
+      "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Print.git",
       "version": "0.0.1"
     }
   ]

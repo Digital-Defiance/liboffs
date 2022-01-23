@@ -32,8 +32,8 @@ class iso _TestSection is UnitTest
       end
 
 
-      let path: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/sections/data/")
-      let metaPath: FilePath = FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/sections/meta/")
+      let path: FilePath = FilePath(t.env.root, "offs/blocks/nano/sections/data/")
+      let metaPath: FilePath = FilePath(t.env.root, "offs/blocks/nano/sections/meta/")
       path.mkdir()
       metaPath.mkdir()
 
@@ -212,13 +212,13 @@ class iso _TestSection is UnitTest
         var _i: USize = 0
         var _section: Section[Nano] = section
         var _t: TestHelper = t
-        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/"))? end
+        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root, "offs/blocks/nano/index/"))? end
         be apply() =>
           try
             if _i < _blocks.size() then
               _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
             else
-              let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth, "offs/blocks/nano/index/"))? end
+              let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root, "offs/blocks/nano/index/"))? end
               _cb(consume index'')
             end
           else
@@ -241,7 +241,7 @@ class iso _TestSection is UnitTest
                 if _i < _blocks.size() then
                   _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
-                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root as AmbientAuth,  "offs/blocks/nano/index/"))? end
+                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root,  "offs/blocks/nano/index/"))? end
                   _cb(consume index'')
                 end
               else

@@ -129,7 +129,7 @@ actor BlockCache [B: BlockType]
                   | SectionReadError =>
                     cb(SectionReadError)
                   | let data': Buffer val =>
-                    try
+                    try //TODO replace hash with entry.hash in this block
                       let block: Block[B] = Block[B]._withHash(data', hash)?
                       blockCache._cacheBlock(block)
                       cb(block)
