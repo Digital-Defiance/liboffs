@@ -12,7 +12,7 @@ trait DescriptorNotify is Notify
 primitive DescriptorKey is DescriptorNotify
   fun ref apply(descriptorHash: Buffer val) => None
 
-actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val] val]
+actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
   let _bc: BlockCache[B]
   var _isDestroyed: Bool = false
   let _subscribers': Subscribers
@@ -108,7 +108,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val]
   fun _destroyed(): Bool =>
     _isDestroyed
 
-  be write(data: Array[Buffer val] val) =>
+  be write(data: Tuple val) =>
     if data.size() != _tupleSize then
       destroy(Exception("Invalid Tuple"))
       return
@@ -121,13 +121,13 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Array[Buffer val]
       _descriptor.append(hash)
     end
 
-  be piped(stream: ReadablePushStream[Array[Buffer val] val] tag) =>
+  be piped(stream: ReadablePushStream[Tuple val] tag) =>
     if _destroyed() then
       _notifyError(Exception("Stream has been destroyed"))
     else
-      let dataNotify: DataNotify[Array[Buffer val] val] iso = object iso is DataNotify[Array[Buffer val] val]
+      let dataNotify: DataNotify[Tuple val] iso = object iso is DataNotify[Tuple val]
         let _stream: WriteableDescriptor[B] tag = this
-        fun ref apply(data': Array[Buffer val] val) =>
+        fun ref apply(data': Tuple val) =>
           _stream.write(consume data')
       end
       stream.subscribe(consume dataNotify)

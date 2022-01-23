@@ -27,12 +27,12 @@ actor _WriteableDescriptorTester[B: BlockType]
   var _br: (NewBlocksRecipe[B] | None) = None
   var _wd: (WriteableDescriptor[B] | None) = None
   var _size: USize = 0
-  var _tuple: Array[Buffer val] iso
+  var _tuple: Tuple iso
   var _tupleSize: USize = 0
   var _i: USize = 0
   new create(t: TestHelper) =>
     _t = t
-    _tuple = recover Array[Buffer val](3) end
+    _tuple = recover Tuple(3) end
     try
       let path: FilePath = FilePath(t.env.root, "offs/blocks/")
       let conf: Config val = DefaultConfig()
@@ -112,12 +112,17 @@ actor _WriteableDescriptorTester[B: BlockType]
     end
 
   be _receiveBlock(block: Block[B] val) =>
-    _tuple.push(block.hash)
+    try
+       _tuple.push(block.hash)?
+     else
+       _t.fail("Tuple Push Error")
+       _t.complete(true)
+     end
     _i = _i + 1
     match _wd
     | let wd: WriteableDescriptor[B]  =>
       if (_tuple.size() == 3) then
-        wd.write(_tuple = recover Array[Buffer val](3) end)
+        wd.write(_tuple = recover Tuple(3) end)
       end
       match _br
       | let br: NewBlocksRecipe[B] =>
