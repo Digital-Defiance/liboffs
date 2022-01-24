@@ -1,4 +1,5 @@
 use "Buffer"
+use "collections"
 
 class Tuple
   let hashes: Array[Buffer val]
@@ -58,3 +59,21 @@ class Tuple
 
   fun box size(): USize =>
     hashes.size()
+
+  fun box eq(that: box->Tuple): Bool =>
+    if that.size() != hashes.size() then
+      return false
+    end
+    try
+      for i in Range(0, hashes.size()) do
+        if hashes(i)? != that(i)? then
+          return false
+        end
+      end
+      true
+    else
+      false
+    end
+
+  fun box ne(that: box->Tuple): Bool =>
+    not eq(that)
