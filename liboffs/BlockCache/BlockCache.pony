@@ -124,13 +124,13 @@ actor BlockCache [B: BlockType]
           match _index.find(hash)?
             | let entry: IndexEntry =>
               _entryCheckout(hash) = entry
-              let cb' = {(data: (Buffer val | SectionReadError)) (blockCache: BlockCache[B] = this) =>
+              let cb' = {(data: (Buffer val | SectionReadError)) (blockCache: BlockCache[B] = this, hash': Buffer val = entry.hash) =>
                 match data
                   | SectionReadError =>
                     cb(SectionReadError)
                   | let data': Buffer val =>
-                    try //TODO replace hash with entry.hash in this block
-                      let block: Block[B] = Block[B]._withHash(data', hash)?
+                    try
+                      let block: Block[B] = Block[B]._withHash(data', hash')?
                       blockCache._cacheBlock(block)
                       cb(block)
                     else
