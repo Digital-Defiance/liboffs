@@ -4,6 +4,7 @@ use "LRUCache"
 use "collections"
 use "Config"
 use "Buffer"
+use "json"
 
 primitive BlockNotFound
 
@@ -22,7 +23,17 @@ primitive NewBlockCache[B: BlockType]
     end
     let blocks: LRUCache[Buffer val, (Block[B] val, IndexEntry)] iso = recover LRUCache[Buffer val, (Block[B] val, IndexEntry)](config("lruSize")? as USize) end
     let path: FilePath = FilePath.from(path', name)?
-    let index: Index iso = recover Index((config("indexNodeSize")? as USize), path)? end
+    let index: Index iso = try
+      let indexPath = FilePath.from(path, "index/")?
+      let indexFilePath = FilePath.from(indexPath, ".index")?
+      let fileInfo = FileInfo(indexFilePath)?
+      let indexFile = File.open(indexFilePath)
+      let indexJSON: JsonDoc val = recover val JsonDoc.>parse(indexFile.read_string(indexFile.size()))? end
+      let indexObj: JsonObject val = (indexJSON.data as JsonObject val)
+      recover Index.fromJSON(indexObj, indexPath)? end
+    else
+      recover Index((config("indexNodeSize")? as USize), path)? end
+    end
     let sections: Sections[B] = Sections[B](path, (config("sectionSize")? as USize), (config("maxTupleSize")? as USize))// TODO: How large should a section be?
     BlockCache[B](config, consume blocks, consume index, sections)
 

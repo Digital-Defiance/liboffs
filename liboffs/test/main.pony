@@ -22,3 +22,4 @@ actor Main is TestList
     test(_TestRandomPopularityRecipe)
     test(_TestWriteableDescriptor)
     test(_TestReadableDescriptor)
+    test(_TestWriteableOffStream)

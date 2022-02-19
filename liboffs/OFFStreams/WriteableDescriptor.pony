@@ -4,12 +4,12 @@ use "Buffer"
 use "Exception"
 use "collections"
 
-trait DescriptorNotify is Notify
+trait DescriptorHashNotify is Notify
   fun ref apply(descriptorHash: Buffer val)
   fun box hash(): USize =>
     50
 
-primitive DescriptorKey is DescriptorNotify
+primitive DescriptorKey is DescriptorHashNotify
   fun ref apply(descriptorHash: Buffer val) => None
 
 actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
@@ -54,7 +54,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
         subscribers(PipedKey)?.size()
       elseif A <: UnpipedNotify then
         subscribers(UnpipedKey)?.size()
-      elseif A <: DescriptorNotify  then
+      elseif A <: DescriptorHashNotify  then
         subscribers(DescriptorKey)?.size()
       else
         0
@@ -85,7 +85,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
      var i: USize = 0
      for notify in subscribers(DescriptorKey)?.values() do
        match notify
-       |  (let notify': DescriptorNotify, let once: Bool) =>
+       |  (let notify': DescriptorHashNotify, let once: Bool) =>
            notify'(descriptorHash)
            if once then
              onces.push(i)
@@ -110,12 +110,12 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
 
   be write(data: Tuple val) =>
     if data.size() != _tupleSize then
-      destroy(Exception("Invalid Tuple"))
+      destroy(Exception("Invalid Tuple Size " + data.size().string()))
       return
     end
     for hash in data.values() do
       if hash.size() != _descriptorPad then
-        destroy(Exception("Invalid Tuple"))
+        destroy(Exception("Invalid Tuple Hash Size"))
         return
       end
       _descriptor.append(hash)
@@ -138,7 +138,8 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
       stream.subscribe(consume errorNotify)
       let completeNotify: CompleteNotify iso = object iso is CompleteNotify
         let _stream: WriteableDescriptor[B] tag = this
-        fun ref apply() => _stream.close()
+        fun ref apply() =>
+          _stream.close()
       end
       stream.subscribe(consume completeNotify)
       let closeNotify: CloseNotify iso = object iso  is CloseNotify

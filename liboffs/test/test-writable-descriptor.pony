@@ -69,7 +69,7 @@ actor _WriteableDescriptorTester[B: BlockType]
         fun apply() =>
           _t.log("Block Recipe Closed")
       end
-      let descriptorNotify: DescriptorNotify iso = object iso is DescriptorNotify
+      let descriptorNotify: DescriptorHashNotify iso = object iso is DescriptorHashNotify
         let t: TestHelper = _t
         let test: _WriteableDescriptorTester[B] = this
         fun apply(descriptorHash: Buffer val) =>

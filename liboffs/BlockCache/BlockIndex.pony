@@ -173,7 +173,7 @@ class Index
     path.mkdir()
     _path = path
     _ranks = Map[U64, Array[IndexEntry]]
-    let entries: List[IndexEntry] = List[IndexEntry]
+    let entries: List[IndexEntry] = list()
     for entry in entries.values() do
       try
         let rank: Array[IndexEntry] = _ranks(entry.hits.fib())?
