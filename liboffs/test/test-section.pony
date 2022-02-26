@@ -3,22 +3,28 @@ use "../BlockCache"
 use "collections"
 use "files"
 use "Buffer"
+use "Exception"
 
 interface WriteNextLoop
-  be loop(index: ((USize, Bool) | SectionWriteError))
+  be loop(index: ((USize, Bool) | Exception))
   be apply()
 
 interface ReadNextLoop
-  be loop(index: (Buffer val | SectionReadError))
+  be loop(index: (Buffer val | Exception))
   be apply()
 
 interface DeallocateNextLoop
-  be loop(ok: (None | SectionDeallocateError))
+  be loop(ok: (None | Exception))
   be apply()
 
 class iso _TestSection is UnitTest
   fun name(): String => "Testing Section"
   fun exclusion_group(): String => "Block Cache"
+  fun ref set_up(t: TestHelper) =>
+    try
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      offDir.remove("nano")
+    end
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     try
@@ -94,7 +100,7 @@ class iso _TestSection is UnitTest
               be apply() =>
                 if _i < _blocks.size() then
                   try
-                    _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                    _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
                   else
                     _t.fail("block error")
                     _t.complete(true)
@@ -102,10 +108,10 @@ class iso _TestSection is UnitTest
                 else
                   _cb()
                 end
-              be loop(index: ((USize, Bool) | SectionWriteError)) =>
+              be loop(index: ((USize, Bool) | Exception)) =>
                 match index
-                  | SectionWriteError =>
-                    _t.fail("SectionWriteError" + _i.string())
+                  | let err: Exception =>
+                    _t.fail(err.string())
                     _t.complete(true)
                   | (let index': USize,  let full: Bool) =>
                     try
@@ -116,7 +122,7 @@ class iso _TestSection is UnitTest
                     end
                     if _i < _blocks.size() then
                       try
-                        _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                        _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
                       else
                         _t.fail("block error")
                         _t.complete(true)
@@ -137,7 +143,7 @@ class iso _TestSection is UnitTest
             be apply() =>
               if _i < 6 then
                 try
-                  section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | SectionDeallocateError)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
+                  section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | Exception)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
                 else
                   _t.fail("Index Error")
                   _t.complete(true)
@@ -145,15 +151,15 @@ class iso _TestSection is UnitTest
               else
                 _cb()
               end
-            be loop(ok: (None | SectionDeallocateError)) =>
+            be loop(ok: (None | Exception)) =>
               match ok
-                | SectionDeallocateError =>
-                  _t.fail("SectionDeallocateError")
+              | let err: Exception =>
+                  _t.fail(err.string())
                   _t.complete(true)
               end
               if _i < 6 then
                 try
-                  section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | SectionDeallocateError)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
+                  section.deallocate(_indexes(_i = _i + 1)?, {(ok: (None | Exception)) (next : DeallocateNextLoop tag = this) => next.loop(ok) } val)
                 else
                   _t.fail("Index Error")
                   _t.complete(true)
@@ -175,7 +181,7 @@ class iso _TestSection is UnitTest
           be apply() =>
             if _i < _indexes.size() then
               try
-                _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
+                _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | Exception)) (next : ReadNextLoop tag = this) => next.loop(data) })
               else
                 _t.fail("block error")
                 _t.complete(true)
@@ -184,9 +190,9 @@ class iso _TestSection is UnitTest
               _cb()
             end
 
-          be loop(data: (Buffer val | SectionReadError)) =>
+          be loop(data: (Buffer val | Exception)) =>
             match data
-              | SectionReadError =>
+            | let err: Exception =>
                 _t.fail("SectionReadError")
                 _t.complete(true)
               | let data' : Buffer val =>
@@ -194,7 +200,7 @@ class iso _TestSection is UnitTest
                   if _i < _indexes.size() then
                     let block: Block[Nano] = _bs.newBlock(data')?
                     t.assert_true(block.data == _blocks(_i - 1)?.data)
-                    _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | SectionReadError)) (next : ReadNextLoop tag = this) => next.loop(data) })
+                    _section.read(_indexes(_i = _i + 1)?, {(data: (Buffer val | Exception)) (next : ReadNextLoop tag = this) => next.loop(data) })
                   else
                     _cb()
                   end
@@ -216,7 +222,7 @@ class iso _TestSection is UnitTest
         be apply() =>
           try
             if _i < _blocks.size() then
-              _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+              _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
             else
               let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root, "offs/blocks/nano/index/"))? end
               _cb(consume index'')
@@ -225,10 +231,10 @@ class iso _TestSection is UnitTest
             _t.fail("block error")
             _t.complete(true)
           end
-        be loop(index: ((USize, Bool) | SectionWriteError)) =>
+        be loop(index: ((USize, Bool) | Exception)) =>
           match index
-            | SectionWriteError =>
-              _t.fail("SectionWriteError this one")
+          | let err: Exception =>
+              _t.fail(err.string())
               _t.complete(true)
             | (let index': USize, let full: Bool) =>
               try
@@ -239,7 +245,7 @@ class iso _TestSection is UnitTest
               end
               try
                 if _i < _blocks.size() then
-                  _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | SectionWriteError)) (next : WriteNextLoop tag = this) => next.loop(index) })
+                  _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
                   let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root,  "offs/blocks/nano/index/"))? end
                   _cb(consume index'')

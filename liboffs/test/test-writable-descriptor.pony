@@ -12,6 +12,11 @@ use "Buffer"
 class iso _TestWriteableDescriptor is UnitTest
   fun name(): String => "Testing Writeable Descriptor"
   fun exclusion_group(): String => "Block Cache"
+  fun ref set_up(t: TestHelper) =>
+    try
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      offDir.remove("blocks")
+    end
   fun apply(t: TestHelper) =>
     t.long_test(20000000000)
     t.expect_action("generated")

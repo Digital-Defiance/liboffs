@@ -22,37 +22,38 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
   fun readable(): Bool =>
     _isReadable
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
-  fun ref _subscribers() : Subscribers =>
+  fun ref subscribers() : Subscribers =>
     _subscribers'
 
   be pull() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       try
         let block: Block[B] = _bs.newBlock()?
-        _blockCache.put(block,{(err:(None | SectionWriteError)) (recipe: NewBlocksRecipe[B] tag = this, block': Block[B] = block) => recipe._releaseBlock(block', err)})
+        _blockCache.put(block,{(err:(None | Exception)) (recipe: NewBlocksRecipe[B] tag = this, block': Block[B] = block) => recipe._releaseBlock(block', err)})
       else
-        _notifyError(Exception("Failed to generate block"))
+        notifyError(Exception("Failed to generate block"))
       end
     end
 
-  be _releaseBlock(block: Block[B], err: (None | SectionWriteError)) =>
+  be _releaseBlock(block: Block[B], err: (None | Exception)) =>
     match err
-      | SectionWriteError =>
-        _notifyError(Exception("Failed to store block"))
+    | let err': Exception =>
+        notifyError(err')
     else
-      _notifyData(block)
+      notifyData(block)
     end
+
   be read(cb: {(Block[B])} val, size: (USize | None) = None) =>
     None
 
   be piped(stream: WriteablePullStream[Block[B]] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
         let _stream: NewBlocksRecipe[B] tag = this
@@ -70,15 +71,15 @@ actor NewBlocksRecipe[B: BlockType] is BlockRecipe[B]
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
-      _notifyPiped()
+      notifyPiped()
     end
 
   fun ref _close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      notifyClose()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
     end
 
   be close() =>

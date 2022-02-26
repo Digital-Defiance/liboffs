@@ -4,10 +4,7 @@ use "json"
 use "time"
 use "ponytest"
 use "Buffer"
-
-primitive SectionReadError
-primitive SectionWriteError
-primitive SectionDeallocateError
+use "Exception"
 
 class Fragment
   var start: USize
@@ -69,7 +66,7 @@ actor Section [B: BlockType]
       _fragments = fragments
     end
 
-  //fun _final() =>
+
 
 
   be _saveFragments() =>
@@ -96,7 +93,7 @@ actor Section [B: BlockType]
         end
     end
 
-  be deallocate(index: USize, cb: {((None | SectionDeallocateError))} val) =>
+  be deallocate(index: USize, cb: {((None | Exception))} val) =>
     match _fragments
       | None =>
         let fragments: List[Fragment] = List[Fragment] (1)
@@ -138,7 +135,7 @@ actor Section [B: BlockType]
             _fragments = pt1
           end
         else
-          cb(SectionDeallocateError)
+          cb(Exception("Section Deallocate Error"))
           return
         end
     end
@@ -181,57 +178,63 @@ actor Section [B: BlockType]
       false
     end
 
-  be write(block: Block[B], cb: {(((USize, Bool) | SectionWriteError))} val) =>
+  be write(block: Block[B], cb: {(((USize, Bool) | Exception))} val) =>
     match try _nextIndex()? else None end
       | None =>
-        cb(SectionWriteError)
+        cb(Exception("Section Full"))
       | let index : USize =>
-        let file: (File | SectionWriteError) = match _file
+        let file: (File | Exception) = match _file
           | None =>
             match try CreateFile(_path as FilePath) else FileError end
               | let file': File => file'
               | FileError =>
-                SectionWriteError
+                Exception("File Error")
             else
-              SectionWriteError
+              Exception("Section Write Error")
             end
           | let file' : File => file'
         end
         match file
-          | SectionWriteError =>
-            cb(SectionWriteError)
-          | let file': File =>
+        | let err: Exception =>
+            cb(err)
+        | let file': File =>
             let byte: ISize = (index * BlockSize[B]()).isize()
             file'.seek(byte)
             let ok = file'.write(block.data.data)
+            file'.sync()
             if (ok) then
               cb((index, full()))
               _save()
             else
-              cb(SectionWriteError)
+              cb(Exception("Section Write Error"))
             end
         end
     end
 
-  be read(index: USize, cb: {((Buffer val | SectionReadError))} val) =>
-   let file : (File | SectionReadError) = match _file
+  be read(index: USize, cb: {((Buffer val | Exception))} val) =>
+   let file : (File | Exception) = match _file
     | None =>
       match try CreateFile(_path as FilePath) else FileError end
         | let file': File => file'
       else
-        SectionReadError
+        Exception("File Error")
       end
     | let file' : File =>
       file'
     end
     match file
-      | SectionReadError =>
-        cb(SectionReadError)
+      | let err: Exception =>
+        cb(err)
       | let file': File => file
         let byte: ISize = (index * BlockSize[B]()).isize()
         file'.seek(byte)
-        let data: Buffer val = recover Buffer(file'.read(BlockSize[B]())) end
-        cb(data)
+        let size: USize = BlockSize[B]()
+        let data: Buffer val = recover Buffer(file'.read(size)) end
+        if data.size() < BlockSize[B]() then
+          cb(Exception("Section Read Invalid - Section " + id.string() + " index " + index.string()))
+        else
+          cb(data)
+        end
     end
   fun ref _save() =>
     match _saver

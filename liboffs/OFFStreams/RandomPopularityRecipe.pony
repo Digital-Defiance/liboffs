@@ -23,20 +23,20 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
     gen = Rand(now._1.u64(), now._2.u64())
 
   fun ref _hasReaders(): Bool =>
-    _subscriberCount[DataNotify[Block[B]]]() > 0
+    subscriberCount[DataNotify[Block[B]]]() > 0
 
   fun readable(): Bool =>
     _isReadable
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
-  fun ref _subscribers() : Subscribers =>
+  fun ref subscribers() : Subscribers =>
     _subscribers'
 
   be pull() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       try
         _nextHash(_ranks as Array[U64])
@@ -52,7 +52,7 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
       try
         _blockCache.hashesAtRank(ranks'(_currentRankIndex)?, {(hashes: Array[Buffer val] iso) (recipe: RandomPopularityRecipe[B] tag = this) =>  recipe._receiveRankHashes(consume hashes)})
       else
-        _notifyComplete()
+        notifyComplete()
         _close()
       end
     end
@@ -61,7 +61,7 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
      let index: USize = gen.usize() % currentRankHashes.size()
      try
         let hash: Buffer val = currentRankHashes(index)?
-        _blockCache.get(hash,{(block: (Block[B] | SectionReadError | BlockNotFound)) (recipe: RandomPopularityRecipe[B] tag = this) =>
+        _blockCache.get(hash,{(block: (Block[B] | Exception | BlockNotFound)) (recipe: RandomPopularityRecipe[B] tag = this) =>
           recipe._receiveBlock(block)} val)
         currentRankHashes.remove(index, 1)
         if currentRankHashes.size() <= 0 then
@@ -93,7 +93,7 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
     end
     _ranks = ranks'
     if ranks'.size() <= 0 then
-      _notifyComplete()
+      notifyComplete()
       _close()
     else
       _nextHash(ranks')
@@ -113,19 +113,19 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
       _nextBlock(currentRankHashes)
     end
 
-  be _receiveBlock(block: (Block[B] | SectionReadError | BlockNotFound)) =>
+  be _receiveBlock(block: (Block[B] | Exception | BlockNotFound)) =>
     match block
       | let block': Block[B] =>
-        _notifyData(block')
-      | SectionReadError =>
-        destroy(Exception("Section Read Error"))
+        notifyData(block')
+      | let err: Exception =>
+        destroy(err)
       | BlockNotFound =>
         destroy(Exception("Block Not Found"))
     end
 
   be piped(stream: WriteablePullStream[Block[B]] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let errorNotify: ErrorNotify iso = object iso is ErrorNotify
         let _stream: RandomPopularityRecipe[B] tag = this
@@ -142,15 +142,15 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
         fun ref apply () => _stream.close()
       end
       stream.subscribe(consume closeNotify)
-      _notifyPiped()
+      notifyPiped()
     end
 
   fun ref _close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      notifyClose()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
     end
 
   be close() =>

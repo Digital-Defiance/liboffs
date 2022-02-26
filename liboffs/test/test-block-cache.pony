@@ -3,6 +3,7 @@ use "collections"
 use "files"
 use "../BlockCache"
 use "../Global"
+use "Exception"
 
 actor BlockCacheTester[B: BlockType]
   let _t: TestHelper
@@ -46,12 +47,12 @@ actor BlockCacheTester[B: BlockType]
   be testPut() =>
     if _i < _blocks.size() then
       try
-        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | SectionWriteError )) (bc: BlockCacheTester[B] = this) =>
+        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | Exception)) (bc: BlockCacheTester[B] = this) =>
           match err
             | None =>
               bc.testPut()
-            | SectionWriteError =>
-              _t.fail("Section Write Error")
+            | let err': Exception =>
+              _t.fail(err'.string())
               _t.complete(true)
           end
         })
@@ -68,7 +69,7 @@ actor BlockCacheTester[B: BlockType]
   be testGet() =>
     if _i < _blocks.size() then
       try
-        _bc.get(_blocks(_i = _i + 1)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1)) =>
+        _bc.get(_blocks(_i = _i + 1)?.hash, {(block: (Block[B] | Exception | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1)) =>
           match block
             | let block': Block[B] =>
               try
@@ -97,11 +98,11 @@ actor BlockCacheTester[B: BlockType]
     be testRemove() =>
       if _i < _blocks.size() then
         try
-          _bc.remove(_blocks(_i = _i + 1)?.hash, {(err: (None | SectionDeallocateError | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1), _t) =>
+          _bc.remove(_blocks(_i = _i + 1)?.hash, {(err: (None | Exception | BlockNotFound)) (bc: BlockCacheTester[B] = this, i = (_i - 1), _t) =>
             match err
               | None =>
                 try
-                    _bc.get(_blocks(i)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bc,_t) =>
+                    _bc.get(_blocks(i)?.hash, {(block: (Block[B] | Exception | BlockNotFound)) (bc,_t) =>
                     match block
                       | let block': Block[B] =>
                         _t.fail("Block found after Removal")
@@ -132,6 +133,11 @@ actor BlockCacheTester[B: BlockType]
 class iso _TestBlockCache is UnitTest
   fun name(): String => "Testing Block Cache"
   fun exclusion_group(): String => "Block Cache"
+  fun ref set_up(t: TestHelper) =>
+    try
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      offDir.remove("blocks")
+    end
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     try
@@ -144,8 +150,6 @@ class iso _TestBlockCache is UnitTest
           blocks'
       end
       let path: FilePath = FilePath(t.env.root, "offs/blocks/")
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
-      offDir.remove("blocks")
       let bc': BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
       let bc = BlockCacheTester[Standard](t, blocks, path, bc', {() =>
         t.complete(true)

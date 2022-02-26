@@ -54,52 +54,52 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
         finalBlock is block
     end
 
-  fun ref _subscribers(): Subscribers =>
+  fun ref subscribers(): Subscribers =>
     _subscribers'
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
   fun readable(): Bool =>
     _readable
 
-  fun ref _piped(): Bool =>
+  fun ref isPiped(): Bool =>
     _isPiped
 
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+  fun ref pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
     _pipeNotifiers' = None
 
-  fun ref _subscriberCount[A: Notify](): USize =>
-    let subscribers: Subscribers = _subscribers()
+  fun ref subscriberCount[A: Notify](): USize =>
+    let subscribers': Subscribers = subscribers()
     try
       iftype A <: ThrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: UnthrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: ErrorNotify then
-        subscribers(ErrorKey)?.size()
+        subscribers'(ErrorKey)?.size()
       elseif A <: PipedNotify then
-        subscribers(PipedKey)?.size()
+        subscribers'(PipedKey)?.size()
       elseif A <: UnpipedNotify then
-        subscribers(UnpipedKey)?.size()
+        subscribers'(UnpipedKey)?.size()
       elseif A <: PipeNotify then
-        subscribers(PipeKey)?.size()
+        subscribers'(PipeKey)?.size()
       elseif A <: UnpipeNotify then
-        subscribers(UnpipeKey)?.size()
+        subscribers'(UnpipeKey)?.size()
       elseif A <: DataNotify[Tuple val] then
-        subscribers(DataKey[Tuple val])?.size()
+        subscribers'(DataKey[Tuple val])?.size()
       elseif A <: ReadableNotify then
-        subscribers(ReadableKey)?.size()
+        subscribers'(ReadableKey)?.size()
       elseif A <: CompleteNotify then
-        subscribers(CompleteKey)?.size()
+        subscribers'(CompleteKey)?.size()
       elseif A <: FinishedNotify then
-        subscribers(FinishedKey)?.size()
+        subscribers'(FinishedKey)?.size()
       elseif A <: EmptyNotify then
-        subscribers(EmptyKey)?.size()
+        subscribers'(EmptyKey)?.size()
       elseif A <: OverflowNotify then
-        subscribers(OverflowKey)?.size()
+        subscribers'(OverflowKey)?.size()
       elseif A <: FileHashNotify then
-        subscribers(FileHashKey)?.size()
+        subscribers'(FileHashKey)?.size()
       else
         0
       end
@@ -108,7 +108,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
     end
 
   be _recipeError(ex: Exception) =>
-    _notifyError(ex)
+    notifyError(ex)
 
   fun ref _registerRecipe() =>
     let errorNotify: ErrorNotify iso = object iso is ErrorNotify
@@ -149,11 +149,11 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
     _currentRecipe.subscribe(consume dataNotify)
 
   be _createFinalBlock() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let hash: Array[U8] iso = _hash.digest()
-      _notifyFileHash(recover Buffer (consume hash) end)
+      notifyFileHash(recover Buffer (consume hash) end)
       if _accumulator.size() > 0 then
         try
           let originBlock: Block[B] = _bs.newBlock(_accumulator = recover Buffer(0) end)?
@@ -164,14 +164,14 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
           end
           if not _readable then
             _readable = true
-            _notifyReadable()
+            notifyReadable()
           end
         else
           destroy(Exception("Failed to create final block"))
         end
       else
-        _notifyFinished()
-        _notifyComplete()
+        notifyFinished()
+        notifyComplete()
         _close()
       end
     end
@@ -188,12 +188,12 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
       _getRandomBlocks()
     end
 
-  fun ref _notifyFileHash(fileHash: Buffer val) =>
+  fun ref notifyFileHash(fileHash: Buffer val) =>
     try
-      let subscribers: Subscribers = _subscribers()
-      let onces = Array[USize](subscribers.size())
+      let subscribers': Subscribers = subscribers()
+      let onces = Array[USize](subscribers'.size())
       var i: USize = 0
-      for notify in subscribers(FileHashKey)?.values() do
+      for notify in subscribers'(FileHashKey)?.values() do
         match notify
         |  (let notify': FileHashNotify, let once: Bool) =>
             notify'(fileHash)
@@ -204,13 +204,13 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
         i = i + 1
       end
       if onces.size() > 0 then
-        _discardOnces(subscribers(FileHashKey)?, onces)
+        discardOnces(subscribers'(FileHashKey)?, onces)
       end
     end
 
   be piped(stream: ReadablePushStream[Buffer iso] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let dataNotify: DataNotify[Buffer iso] iso = object iso is DataNotify[Buffer iso]
         let _stream: WriteableOffStream[B] tag = this
@@ -235,20 +235,20 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
-      if _isPiped then
-        _notifyPiped()
+      if isPiped() then
+        notifyPiped()
       end
     end
 
   be pipe(stream: WriteablePushStream[Tuple val] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
-      let pipeNotifiers: Array[Notify tag] iso = try
-         _pipeNotifiers() as Array[Notify tag] iso^
+      let pipeNotifiers': Array[Notify tag] iso = try
+         pipeNotifiers() as Array[Notify tag] iso^
       else
-        let pipeNotifiers' = recover Array[Notify tag] end
-        consume pipeNotifiers'
+        let pipeNotifiers'' = recover Array[Notify tag] end
+        consume pipeNotifiers''
       end
 
       let pipedNotify: PipedNotify iso = object iso  is PipedNotify
@@ -257,30 +257,30 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
       end
       let pipedNotify': PipedNotify tag = pipedNotify
       stream.subscribe(consume pipedNotify)
-      pipeNotifiers.push(pipedNotify')
+      pipeNotifiers'.push(pipedNotify')
 
       let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
         let _stream: WriteableOffStream[B] tag = this
         fun ref apply (ex: Exception) => _stream.destroy(ex)
       end
       let errorNotify': ErrorNotify tag = errorNotify
-      pipeNotifiers.push(errorNotify')
+      pipeNotifiers'.push(errorNotify')
       stream.subscribe(consume errorNotify)
-      _pipeNotifiers' = consume pipeNotifiers
+      _pipeNotifiers' = consume pipeNotifiers'
       stream.piped(this)
-      _notifyPipe()
+      notifyPipe()
     end
 
   be _endPiped() =>
     _isPiped = true
-    _notifyPiped()
+    notifyPiped()
 
   be push() =>
     None
 
   be write(data: Buffer iso) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let data': Buffer val = consume data
       _hash.update(data'.data)
@@ -297,7 +297,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
           end
           if not _readable then
             _readable = true
-            _notifyReadable()
+            notifyReadable()
           end
 
           for i in Range(0, stop) do
@@ -321,7 +321,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
           end
           if not _readable then
             _readable = true
-            _notifyReadable()
+            notifyReadable()
           end
         else
           destroy(Exception("Failed to Create Origin Block"))
@@ -349,20 +349,20 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
           try
             for block in tupleParts.values() do
               currentTuple.push(block.hash)?
-              _bc.put(block,{(err:(None | SectionWriteError)) (stream: WriteableOffStream[B] tag = this, block: Block[B] = block) =>
+              _bc.put(block,{(err:(None | Exception)) (stream: WriteableOffStream[B] tag = this, block: Block[B] = block) =>
                 match err
-                  | SectionWriteError =>
-                    stream.destroy(Exception("Failed to Save Tuple Block:" + try Base58.encode(block.hash.data)? else "" end))
+                | let err': Exception =>
+                    stream.destroy(err')
                 end
               })
             end
             let currentTuple': Tuple val = consume currentTuple
             _tc(currentTuple') = originBlock.data
-            _notifyData(currentTuple')
+            notifyData(currentTuple')
             if _isFinalBlock(originBlock) then
               _finalBlock = None
-              _notifyFinished()
-              _notifyComplete()
+              notifyFinished()
+              notifyComplete()
               _close()
             elseif _originBlocks.size() > 0 then
               _getRandomBlocks()
@@ -400,11 +400,11 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
     None
 
   fun ref _close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      notifyClose()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
       _pipeNotifiers' = None
     end
 

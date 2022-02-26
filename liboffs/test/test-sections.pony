@@ -3,6 +3,7 @@ use "../BlockCache"
 use "collections"
 use "files"
 use "Buffer"
+use "Exception"
 
 actor SectionsTester[B: BlockType]
   var _index: (Index | None) = None
@@ -79,7 +80,7 @@ actor SectionsTester[B: BlockType]
     elseif (_readTestComplete != true) then
       if _i < _blocks.size() then
         try
-          testRead(_blocks(_i = _i + 1)?.hash, {( block: (Block[B] | SectionReadError)) (next: SectionsTester[B] = this, i = (_i - 1) ) =>
+          testRead(_blocks(_i = _i + 1)?.hash, {( block: (Block[B] | Exception)) (next: SectionsTester[B] = this, i = (_i - 1) ) =>
             match block
               | let block': Block[B] =>
                 try
@@ -107,10 +108,10 @@ actor SectionsTester[B: BlockType]
     else
       if _i < _blocks.size() then
         try
-          testDeallocate(_blocks(_i = _i + 1)?.hash, {( err: (None | SectionDeallocateError)) (next: SectionsTester[B] = this) =>
+          testDeallocate(_blocks(_i = _i + 1)?.hash, {( err: (None | Exception)) (next: SectionsTester[B] = this) =>
             match err
-              | SectionDeallocateError =>
-                _t.fail("Section Deallocate Error")
+            | let err': Exception =>
+                _t.fail(err'.string())
                 _t.complete(true)
             end
             next()
@@ -141,14 +142,14 @@ actor SectionsTester[B: BlockType]
               return
             end
             _entryCheckout(block.hash) = entry
-            let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Buffer val = block.hash, sectionsTester: SectionsTester[B] = this) =>
+            let cb' = {(id: ((USize, USize) | Exception)) (hash: Buffer val = block.hash, sectionsTester: SectionsTester[B] = this) =>
               match id
                 |  (let sectionId: USize, let sectionIndex: USize) =>
                   sectionsTester._checkIn(hash, sectionId, sectionIndex)
                   cb()
-                | SectionWriteError =>
+                | let err: Exception =>
                   sectionsTester._removeIndex(hash)
-                  _t.fail("Section WriTestLoop Error")
+                  _t.fail(err.string())
                   _t.complete(true)
               end
             } val
@@ -169,7 +170,7 @@ actor SectionsTester[B: BlockType]
         end
     end
 
-  be testRead(hash: Buffer val, cb: {((Block[B] | SectionReadError))} val) =>
+  be testRead(hash: Buffer val, cb: {((Block[B] | Exception))} val) =>
     match _index
       | None =>
         _t.fail("Invalid Index")
@@ -179,10 +180,10 @@ actor SectionsTester[B: BlockType]
         try
           match index.find(hash)?
             | let entry: IndexEntry =>
-              let cb' = {(data: (Buffer val | SectionReadError)) =>
+              let cb' = {(data: (Buffer val | Exception)) =>
                 match data
-                  | SectionReadError =>
-                    _t.fail("Section Read Error")
+                | let err: Exception =>
+                    _t.fail(err.string())
                     _t.complete(true)
                   | let data': Buffer val =>
                     try
@@ -208,10 +209,10 @@ actor SectionsTester[B: BlockType]
               return
           end
         else
-          cb(SectionReadError)
+          cb(Exception("Section Read Error"))
         end
     end
-  be testDeallocate (hash: Buffer val, cb: {((None | SectionDeallocateError))} val) =>
+  be testDeallocate (hash: Buffer val, cb: {((None | Exception))} val) =>
     match _index
       | None =>
         _t.fail("Invalid Index")
@@ -221,10 +222,10 @@ actor SectionsTester[B: BlockType]
         try
           match index.find(hash)?
             | let entry: IndexEntry =>
-              let cb' = {(err: (None | SectionDeallocateError)) =>
+              let cb' = {(err: (None | Exception)) =>
                 match err
-                  | SectionDeallocateError =>
-                    _t.fail("Section Deallocate Error")
+                | let err': Exception =>
+                    _t.fail(err'.string())
                     _t.complete(true)
                   | None  =>
                     cb(None)
@@ -241,12 +242,17 @@ actor SectionsTester[B: BlockType]
               return
           end
         else
-          cb(SectionDeallocateError)
+          cb(Exception("Section Deallocate Error"))
         end
     end
 class iso _TestSections is UnitTest
   fun name(): String => "Testing Sections"
   fun exclusion_group(): String => "Block Cache"
+    fun ref set_up(t: TestHelper) =>
+      try
+        let offDir = Directory(FilePath(t.env.root, "offs/"))?
+        offDir.remove("nano")
+      end
   fun apply(t: TestHelper) =>
     t.long_test(5000000000)
     try

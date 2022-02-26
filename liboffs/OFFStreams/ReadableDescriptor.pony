@@ -36,30 +36,30 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
   fun readable(): Bool =>
     _isReadable
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
-  fun ref _piped(): Bool =>
+  fun ref isPiped(): Bool =>
     _isPiped
 
-  fun ref _pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
+  fun ref pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
     _pipeNotifiers' = None
 
-  fun ref _subscribers() : Subscribers =>
+  fun ref subscribers() : Subscribers =>
     _subscribers'
 
-  fun ref _autoPush(): Bool =>
+  fun ref autoPush(): Bool =>
     true
 
   be pipe(stream: WriteablePushStream[Array[Buffer val] val] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
-      let pipeNotifiers: Array[Notify tag] iso = try
-         _pipeNotifiers() as Array[Notify tag] iso^
+      let pipeNotifiers': Array[Notify tag] iso = try
+         pipeNotifiers() as Array[Notify tag] iso^
       else
-        let pipeNotifiers' = recover Array[Notify tag] end
-        consume pipeNotifiers'
+        let pipeNotifiers'' = recover Array[Notify tag] end
+        consume pipeNotifiers''
       end
 
       let pipedNotify: PipedNotify iso =  object iso is PipedNotify
@@ -68,7 +68,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
           _stream.push()
       end
       let pipedNotify': PipedNotify tag = pipedNotify
-      pipeNotifiers.push(pipedNotify')
+      pipeNotifiers'.push(pipedNotify')
       stream.subscribe(consume pipedNotify)
 
       let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
@@ -76,7 +76,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
         fun ref apply (ex: Exception) => _stream.destroy(ex)
       end
       let errorNotify': ErrorNotify tag = errorNotify
-      pipeNotifiers.push(errorNotify')
+      pipeNotifiers'.push(errorNotify')
       stream.subscribe(consume errorNotify)
 
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
@@ -84,13 +84,13 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
         fun ref apply () => _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify
-      pipeNotifiers.push(closeNotify')
+      pipeNotifiers'.push(closeNotify')
       stream.subscribe(consume closeNotify)
 
-      _pipeNotifiers' = consume pipeNotifiers
+      _pipeNotifiers' = consume pipeNotifiers'
       stream.piped(this)
       _isPiped = true
-      _notifyPipe()
+      notifyPipe()
     end
 
   fun ref _moveToOffset(descriptor: Buffer): (Buffer val, Buffer) =>
@@ -112,9 +112,9 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       (CopyBufferRange(descriptor', 0, _descriptorPad), descriptor'.slice(_descriptorPad))
     end
 
-  be _receiveDescriptorBlock(block: (Block[B] | SectionReadError | BlockNotFound), cb: ({(Array[Buffer val] val)} val | None) = None) =>
+  be _receiveDescriptorBlock(block: (Block[B] | Exception | BlockNotFound), cb: ({(Array[Buffer val] val)} val | None) = None) =>
     match block
-      | SectionReadError => destroy(Exception("Section Read Error"))
+      | let err: Exception => destroy(err)
       | BlockNotFound =>  destroy(Exception("Descriptor Block Not Found"))
       | let block': Block[B] =>
         var currentDescriptor: Buffer = match _currentDescriptor
@@ -158,13 +158,13 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
           end
           match cb
             | None =>
-              _notifyData(consume currentTuple)
+              notifyData(consume currentTuple)
             | let cb': {(Array[Buffer val] val)} val =>
               cb'(consume currentTuple)
           end
           _tupleCounter = _tupleCounter + 1
           if _tupleCounter >= _tupleCount then
-            _notifyComplete()
+            notifyComplete()
             close()
             return
           end
@@ -172,18 +172,18 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     end
 
   be _getDescriptor(key: Buffer val) =>
-    let cb' =  {(block: (Block[B] | SectionReadError | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
+    let cb' =  {(block: (Block[B] | Exception | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
       rd._receiveDescriptorBlock(block)
     } val
     _bc.get(_ori.descriptorHash, cb')
 
   be push() =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       match _currentDescriptor
         | None =>
-          let cb' =  {(block: (Block[B] | SectionReadError | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
+          let cb' =  {(block: (Block[B] | Exception | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
             rd._receiveDescriptorBlock(block)
           } val
           _bc.get(_ori.descriptorHash, cb')
@@ -191,12 +191,12 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     end
 
   be read(cb: {(Array[Buffer val] val)} val, size:(USize | None) = None) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       match _currentDescriptor
         | None =>
-          let cb' =  {(block: (Block[B] | SectionReadError | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
+          let cb' =  {(block: (Block[B] | Exception | BlockNotFound)) (rd: ReadableDescriptor[B] tag = this) =>
             rd._receiveDescriptorBlock(block, cb)
           } val
           _bc.get(_ori.descriptorHash, cb')
@@ -204,23 +204,23 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     end
 
   be destroy(message: (String | Exception)) =>
-    if not _destroyed() then
+    if not destroyed() then
       match message
         | let message' : String =>
-          _notifyError(Exception(message'))
+          notifyError(Exception(message'))
         | let message' : Exception =>
-          _notifyError(message')
+          notifyError(message')
       end
       _isDestroyed = true
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
     end
   be close() =>
-    if not _destroyed() then
+    if not destroyed() then
       _isDestroyed = true
-      _notifyClose()
-      let subscribers: Subscribers = _subscribers()
-      subscribers.clear()
+      notifyClose()
+      let subscribers': Subscribers = subscribers()
+      subscribers'.clear()
       _pipeNotifiers' = None
       _isPiped = false
     end

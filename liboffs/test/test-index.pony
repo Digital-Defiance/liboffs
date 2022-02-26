@@ -46,6 +46,11 @@ class iso _TestIndex is UnitTest
 
 class iso _TestIndexJSON is UnitTest
   fun name(): String => "Testing Index JSON"
+    fun ref set_up(t: TestHelper) =>
+      try
+        let offDir = Directory(FilePath(t.env.root, "offs/"))?
+        offDir.remove("nano")
+      end
   fun apply(t: TestHelper) =>
     try
       let bs: BlockService[Nano] = BlockService[Nano]

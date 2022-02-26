@@ -12,6 +12,11 @@ use "random"
 class iso _TestRandomPopularityRecipe is UnitTest
   fun name(): String => "Testing Random Popularity Block Recipe"
   fun exclusion_group(): String => "Block Cache"
+  fun ref set_up(t: TestHelper) =>
+    try
+      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      offDir.remove("blocks")
+    end
   fun apply(t: TestHelper) =>
     t.long_test(10000000000)
     t.expect_action("generated")
@@ -49,12 +54,12 @@ actor _BlockPopularityGenerator[B: BlockType]
   be _putBlocks() =>
     if _i < _blocks.size() then
       try
-        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | SectionWriteError )) (bpg: _BlockPopularityGenerator[B] = this) =>
+        _bc.put(_blocks(_i = _i + 1)?, {(err: (None | Exception )) (bpg: _BlockPopularityGenerator[B] = this) =>
           match err
             | None =>
               bpg._putBlocks()
-            | SectionWriteError =>
-              _t.fail("Section Write Error")
+            | let err': Exception =>
+              _t.fail(err'.string())
               _t.complete(true)
           end
         })
@@ -72,7 +77,7 @@ actor _BlockPopularityGenerator[B: BlockType]
     if _i < _blocks.size() then
       if _j < _fibCount.usize() then
         try
-          _bc.get(_blocks(_i)?.hash, {(block: (Block[B] | SectionReadError | BlockNotFound)) (bpg: _BlockPopularityGenerator[B] = this) =>
+          _bc.get(_blocks(_i)?.hash, {(block: (Block[B] | Exception | BlockNotFound)) (bpg: _BlockPopularityGenerator[B] = this) =>
             match block
               | let block': Block[B] =>
                 bpg._generatePopularity()

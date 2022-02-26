@@ -5,6 +5,8 @@ use "collections"
 use "Config"
 use "Buffer"
 use "json"
+use "Exception"
+
 
 primitive BlockNotFound
 
@@ -97,7 +99,7 @@ actor BlockCache [B: BlockType]
       cb(recover Array[Buffer val]end)
     end
 
-  be put(block: Block[B], cb: {((None | SectionWriteError))} val) =>
+  be put(block: Block[B], cb: {((None | Exception))} val) =>
     try
       let entry: IndexEntry =  _index.get(block.hash)?
       if entry.sectionId == 0 then
@@ -106,14 +108,14 @@ actor BlockCache [B: BlockType]
           return
         end
         _entryCheckout(block.hash) = entry
-        let cb' = {(id: ((USize, USize) | SectionWriteError)) (hash: Buffer val = block.hash, blockCache: BlockCache[B] = this) =>
+        let cb' = {(id: ((USize, USize) | Exception)) (hash: Buffer val = block.hash, blockCache: BlockCache[B] = this) =>
           match id
             |  (let sectionId: USize, let sectionIndex: USize) =>
               blockCache._checkIn(hash, sectionId, sectionIndex)
               cb(None)
-            | SectionWriteError =>
+            | let err: Exception =>
               blockCache._removeIndex(hash)
-              cb(SectionWriteError)
+              cb(err)
           end
         } val
         _sections.write(block, cb')
@@ -122,10 +124,10 @@ actor BlockCache [B: BlockType]
         cb(None)
       end
     else
-      cb(SectionWriteError)
+      cb(Exception("Section Write Error"))
     end
 
-  be get(hash: Buffer val, cb: {((Block[B] | SectionReadError | BlockNotFound))} val) =>
+  be get(hash: Buffer val, cb: {((Block[B] | Exception | BlockNotFound))} val) =>
     match _blocks(hash)
       | (let block: Block[B], let entry: IndexEntry ) =>
         _index._increment(entry)
@@ -135,17 +137,17 @@ actor BlockCache [B: BlockType]
           match _index.find(hash)?
             | let entry: IndexEntry =>
               _entryCheckout(hash) = entry
-              let cb' = {(data: (Buffer val | SectionReadError)) (blockCache: BlockCache[B] = this, hash': Buffer val = entry.hash) =>
+              let cb' = {(data: (Buffer val | Exception)) (blockCache: BlockCache[B] = this, hash': Buffer val = entry.hash) =>
                 match data
-                  | SectionReadError =>
-                    cb(SectionReadError)
+                | let err: Exception =>
+                    cb(err)
                   | let data': Buffer val =>
                     try
                       let block: Block[B] = Block[B]._withHash(data', hash')?
                       blockCache._cacheBlock(block)
                       cb(block)
                     else
-                      cb(SectionReadError)
+                      cb(Exception("Invalid Data Size"))
                     end
                 end
               } val
@@ -156,18 +158,18 @@ actor BlockCache [B: BlockType]
               return
           end
         else
-          cb(SectionReadError)
+          cb(Exception("Section Read Error"))
         end
       end
 
-  be remove(hash: Buffer val, cb: {((None | SectionDeallocateError | BlockNotFound))} val) =>
+  be remove(hash: Buffer val, cb: {((None | Exception | BlockNotFound))} val) =>
     try
       match _index.find(hash)?
         | let entry: IndexEntry =>
-          let cb' = {(err: (None | SectionDeallocateError)) =>
+          let cb' = {(err: (None | Exception)) =>
             match err
-              | SectionDeallocateError =>
-                cb(SectionDeallocateError)
+            | let err': Exception =>
+                cb(err')
               | None  =>
                 cb(None)
             end
@@ -181,7 +183,7 @@ actor BlockCache [B: BlockType]
           return
       end
     else
-      cb(SectionDeallocateError)
+      cb(Exception("Section Deallocate Error"))
     end
 
   be _saveIndex() =>

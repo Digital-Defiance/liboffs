@@ -41,21 +41,21 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
     _bs = consume bs
 
 
-  fun ref _subscriberCount[A: Notify](): USize =>
-    let subscribers: Subscribers = _subscribers()
+  fun ref subscriberCount[A: Notify](): USize =>
+    let subscribers': Subscribers = subscribers()
     try
       iftype A <: ThrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: UnthrottledNotify then
-        subscribers(ThrottledKey)?.size()
+        subscribers'(ThrottledKey)?.size()
       elseif A <: ErrorNotify then
-        subscribers(ErrorKey)?.size()
+        subscribers'(ErrorKey)?.size()
       elseif A <: PipedNotify then
-        subscribers(PipedKey)?.size()
+        subscribers'(PipedKey)?.size()
       elseif A <: UnpipedNotify then
-        subscribers(UnpipedKey)?.size()
+        subscribers'(UnpipedKey)?.size()
       elseif A <: DescriptorHashNotify  then
-        subscribers(DescriptorKey)?.size()
+        subscribers'(DescriptorKey)?.size()
       else
         0
       end
@@ -63,27 +63,12 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
       0
     end
 
-  fun ref _subscribe(notify: Notify iso, once: Bool = false) =>
-   if _destroyed() then
-     _notifyError(Exception("Stream has been destroyed"))
-   else
-     let subscribers: Subscribers = _subscribers()
-     let notify': Notify = consume notify
-     try
-       subscribers(notify')?.push((notify', once))
-     else
-       let arr: Subscriptions = Subscriptions(10)
-       arr.push((notify', once))
-       subscribers(notify') =  arr
-     end
-   end
-
- fun ref _notifyDescriptor(descriptorHash: Buffer val) =>
+ fun ref notifyDescriptor(descriptorHash: Buffer val) =>
    try
-     let subscribers: Subscribers = _subscribers()
-     let onces = Array[USize](subscribers.size())
+     let subscribers': Subscribers = subscribers()
+     let onces = Array[USize](subscribers'.size())
      var i: USize = 0
-     for notify in subscribers(DescriptorKey)?.values() do
+     for notify in subscribers'(DescriptorKey)?.values() do
        match notify
        |  (let notify': DescriptorHashNotify, let once: Bool) =>
            notify'(descriptorHash)
@@ -94,18 +79,17 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
        i = i + 1
      end
      if onces.size() > 0 then
-       _discardOnces(subscribers(DescriptorKey)?, onces)
+       discardOnces(subscribers'(DescriptorKey)?, onces)
      end
-     subscribers.clear()
      _sentDescriptor = true
    end
 
 
 
-  fun ref _subscribers(): Subscribers=>
+  fun ref subscribers(): Subscribers=>
     _subscribers'
 
-  fun _destroyed(): Bool =>
+  fun destroyed(): Bool =>
     _isDestroyed
 
   be write(data: Tuple val) =>
@@ -122,8 +106,8 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
     end
 
   be piped(stream: ReadablePushStream[Tuple val] tag) =>
-    if _destroyed() then
-      _notifyError(Exception("Stream has been destroyed"))
+    if destroyed() then
+      notifyError(Exception("Stream has been destroyed"))
     else
       let dataNotify: DataNotify[Tuple val] iso = object iso is DataNotify[Tuple val]
         let _stream: WriteableDescriptor[B] tag = this
@@ -149,17 +133,17 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
       end
       let closeNotify': CloseNotify tag = closeNotify
       stream.subscribe(consume closeNotify)
-      _notifyPiped()
+      notifyPiped()
     end
 
-  be _putDescriptorBlocks(err: (None | SectionWriteError) = None) =>
+  be _putDescriptorBlocks(err: (None | Exception) = None) =>
     match err
-    | let err': SectionWriteError =>
+    | let err': Exception =>
       destroy(Exception("Failed to store descriptor block"))
     else
       if _i < _descBlockArr.size() then
         try
-          _bc.put(_descBlockArr(_i = _i + 1)?, {(err: (None | SectionWriteError)) (wd: WriteableDescriptor[B] tag = this) =>
+          _bc.put(_descBlockArr(_i = _i + 1)?, {(err: (None | Exception)) (wd: WriteableDescriptor[B] tag = this) =>
             wd._putDescriptorBlocks(err)
            } val)
          else
@@ -167,7 +151,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
         end
       else
         try
-          _notifyDescriptor(_descBlockArr(0)?.hash)
+          notifyDescriptor(_descBlockArr(0)?.hash)
           _close()
         else
           destroy(Exception("Failed to notify descriptor block"))
@@ -208,13 +192,13 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
 
 
   fun ref _close() =>
-    if not _destroyed() then
+    if not destroyed() then
       if _sentDescriptor then
-        _notifyFinished()
+        notifyFinished()
         _isDestroyed = true
-        _notifyClose()
-        let subscribers: Subscribers = _subscribers()
-        subscribers.clear()
+        notifyClose()
+        let subscribers': Subscribers = subscribers()
+        subscribers'.clear()
       else
         _buildDescriptorBlocks()
       end

@@ -4,6 +4,7 @@ use "json"
 use "LRUCache"
 use "time"
 use "Buffer"
+use "Exception"
 
 actor Sections [B:BlockType]
   var _nextId: USize  = 1
@@ -90,7 +91,7 @@ actor Sections [B:BlockType]
       _save()
     end
 
-  be write(block: Block[B], cb: {(((USize, USize) | SectionWriteError))} val) =>
+  be write(block: Block[B], cb: {(((USize, USize) | Exception))} val) =>
     try
       let sectionId: USize = _roundRobin.shift()?
       _roundRobin.push(sectionId)
@@ -102,45 +103,45 @@ actor Sections [B:BlockType]
         | let section': Section[B] =>
           section'
       end
-      let cb' = {(index: ((USize, Bool) | SectionWriteError)) (sectionId, sections: Sections[B] = this) =>
+      let cb' = {(index: ((USize, Bool) | Exception)) (sectionId, sections: Sections[B] = this) =>
         match index
           | (let index': USize, let full: Bool) =>
             if full then
               sections._full(sectionId)
             end
             cb((sectionId, index'))
-          else
-            cb(SectionWriteError)
+          | let err: Exception =>
+            cb(err)
         end
       } val
       section.write(block, cb')
     else
-      cb(SectionWriteError)
+      cb(Exception("Section Write Error"))
     end
 
-  be read(sectionId: USize, sectionIndex: USize, cb: {((Buffer val | SectionReadError))} val) =>
+  be read(sectionId: USize, sectionIndex: USize, cb: {((Buffer val | Exception))} val) =>
     match _sections(sectionId)
       | let section: Section[B] =>
-        let cb' = {(data:(Buffer val | SectionReadError)) =>
+        let cb' = {(data:(Buffer val | Exception)) =>
           cb(data)
         } val
         section.read(sectionIndex, cb')
       | None =>
         try
           let section: Section[B] = _getSection(sectionId)?
-          let cb' = {(data:(Buffer val | SectionReadError)) =>
+          let cb' = {(data:(Buffer val | Exception)) =>
             cb(data)
           } val
           section.read(sectionIndex, cb')
         else
-          cb(SectionReadError)
+          cb(Exception("Section Read Error"))
         end
     end
 
-  be deallocate(sectionId: USize, sectionIndex: USize, cb: {((None | SectionDeallocateError))} val) =>
+  be deallocate(sectionId: USize, sectionIndex: USize, cb: {((None | Exception))} val) =>
     match _sections(sectionId)
       | let section: Section[B] =>
-        let cb' = {(err: (None | SectionDeallocateError)) (sectionId, sections: Sections[B] = this)=>
+        let cb' = {(err: (None | Exception)) (sectionId, sections: Sections[B] = this)=>
           match err
             | None =>
               sections._free(sectionId)
@@ -151,7 +152,7 @@ actor Sections [B:BlockType]
       | None =>
         try
           let section: Section[B] = _getSection(sectionId)?
-          let cb' = {(err: (None | SectionDeallocateError)) (sections: Sections[B] = this) =>
+          let cb' = {(err: (None | Exception)) (sections: Sections[B] = this) =>
             match err
               | None =>
                 sections._free(sectionId)
@@ -160,7 +161,7 @@ actor Sections [B:BlockType]
           } val
           section.deallocate(sectionIndex, cb')
         else
-          cb(SectionDeallocateError)
+          cb(Exception("Section Deallocate Error"))
         end
     end
 
