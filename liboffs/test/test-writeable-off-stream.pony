@@ -47,7 +47,7 @@ actor _WriteableOffStreamTester[B: BlockType]
       let tc: TupleCache = TupleCache(250)
       let filePath = FilePath(t.env.root, "liboffs/test/test.pdf")
       let file: File iso =recover File(filePath) end
-      let ori: ORI = ORI(where fileSize' = file.size())
+      let ori: ORI = ORI(where finalByte' = file.size())
       ori.tupleSize = tupleSize
       ori.fileName = "test.pdf"
       _ori = ori

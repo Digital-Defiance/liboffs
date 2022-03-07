@@ -26,9 +26,9 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     _subscribers' = Subscribers(3)
     _ori = ori
     _blockSize = BlockSize[B]()
-    _tupleCount = (_ori.fileSize/ _blockSize) + (if (_ori.fileSize % _blockSize) > 0 then 1 else 0 end)
+    _tupleCount = (_ori.finalByte/ _blockSize) + (if (_ori.finalByte % _blockSize) > 0 then 1 else 0 end)
     _cutPoint = ((_blockSize / descriptorPad)  * descriptorPad)
-    _offsetTuple = (_ori.fileOffset / _blockSize) + (if (_ori.fileSize % _blockSize) > 0 then 1 else 0 end)
+    _offsetTuple = (_ori.fileOffset / _blockSize) + (if (_ori.finalByte % _blockSize) > 0 then 1 else 0 end)
     _descriptorPad = descriptorPad
     _bc = bc
     _offsetRemainder = Buffer(_ori.tupleSize * _descriptorPad)

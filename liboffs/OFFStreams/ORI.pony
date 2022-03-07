@@ -9,8 +9,8 @@ class ORI
   var fileHash: Buffer val
   var fileOffset: USize
   var fileName: String
-  var fileSize: USize
-  new create(fileName': String = "", descriptorHash': Buffer val = recover val Buffer end, descriptorOffset': USize = 0, blockType': BlockType = Standard, tupleSize': USize = 0, fileOffset': USize = 0, fileHash': Buffer val = recover val Buffer end, fileSize': USize) =>
+  var finalByte: USize
+  new create(fileName': String = "", descriptorHash': Buffer val = recover val Buffer end, descriptorOffset': USize = 0, blockType': BlockType = Standard, tupleSize': USize = 0, fileOffset': USize = 0, fileHash': Buffer val = recover val Buffer end, finalByte': USize) =>
     descriptorHash = descriptorHash'
     descriptorOffset = descriptorOffset'
     blockType = blockType'
@@ -18,4 +18,4 @@ class ORI
     fileHash = fileHash'
     fileOffset = fileOffset'
     fileName = fileName'
-    fileSize = fileSize'
+    finalByte = finalByte'

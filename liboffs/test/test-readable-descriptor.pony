@@ -174,7 +174,7 @@ actor _ReadableDescriptorTester[B: BlockType]
   be _runTest(descriptorHash: Buffer val) =>
     try
       _i = 0
-      let ori: ORI val = recover ORI(where descriptorHash' = descriptorHash, tupleSize' = _tupleSize, fileSize' = ((_dataLength as USize) / _tupleSize)) end
+      let ori: ORI val = recover ORI(where descriptorHash' = descriptorHash, tupleSize' = _tupleSize, finalByte' = ((_dataLength as USize) / _tupleSize)) end
       let rd: ReadableDescriptor[B] = ReadableDescriptor[B](_bc as BlockCache[B], ori, _descriptorPad as USize)
       let dataNotify: DataNotify[Array[Buffer val] val] iso = object iso is DataNotify[Array[Buffer val] val]
         let test: _ReadableDescriptorTester[B] = this
