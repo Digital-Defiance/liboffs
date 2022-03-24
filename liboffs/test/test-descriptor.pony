@@ -9,8 +9,8 @@ use "Config"
 use "Exception"
 use "Buffer"
 
-class iso _TestReadableDescriptor is UnitTest
-  fun name(): String => "Testing Readable Descriptor"
+class iso _TestDescriptor is UnitTest
+  fun name(): String => "Testing Descriptors"
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
@@ -157,7 +157,7 @@ actor _ReadableDescriptorTester[B: BlockType]
       end
     end
 
-  be _receiveTuple(tuple: Array[Buffer val] val) =>
+  be _receiveTuple(tuple: Tuple val) =>
     try
       for hash in tuple.values() do
         _t.assert_true((_allBlockHashes as Array[Buffer val] iso)((_i = _i + 1) % _tupleSize)? == hash)
@@ -176,9 +176,9 @@ actor _ReadableDescriptorTester[B: BlockType]
       _i = 0
       let ori: ORI val = recover ORI(where descriptorHash' = descriptorHash, tupleSize' = _tupleSize, finalByte' = ((_dataLength as USize) / _tupleSize)) end
       let rd: ReadableDescriptor[B] = ReadableDescriptor[B](_bc as BlockCache[B], ori, _descriptorPad as USize)
-      let dataNotify: DataNotify[Array[Buffer val] val] iso = object iso is DataNotify[Array[Buffer val] val]
+      let dataNotify: DataNotify[Tuple val] iso = object iso is DataNotify[Tuple val]
         let test: _ReadableDescriptorTester[B] = this
-        fun apply(tuple: Array[Buffer val] val) =>
+        fun apply(tuple: Tuple val) =>
           test._receiveTuple(tuple)
       end
       let closeNotify: CloseNotify iso = object iso is CloseNotify

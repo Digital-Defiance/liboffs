@@ -2,6 +2,8 @@ use "Streams"
 use "Exception"
 use "../BlockCache"
 use "Buffer"
+use "Base58"
+
 
 actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple val]
   var _readable: Bool = false
@@ -127,7 +129,7 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
 
   fun ref _renderOriginData(data: (Buffer val | None) = None) =>
     match _tuples
-    | let tuples: Array[(Tuple val, Array[Block[B]])] =>
+      | let tuples: Array[(Tuple val, Array[Block[B]])] =>
         match data
         | let data': Buffer val =>
           try
@@ -153,14 +155,16 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
               notifyFinished()
               notifyComplete()
               _close()
+            else
+              _currentTupleIndex = 0
+              _checkCache()
             end
           else
             destroy(Exception("Failed to retrieve original data"))
           end
         | None =>
           try
-            let currentTuple = tuples(0)?
-            tuples.shift()?
+            let currentTuple = tuples.shift()?
             _currentTupleIndex = 0
             var originBlock: Block[B] = currentTuple._2.shift()?
             for block in currentTuple._2.values() do
@@ -186,13 +190,16 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
               notifyFinished()
               notifyComplete()
               _close()
+            else
+              _currentTupleIndex = 0
+              _checkCache()
             end
           else
             destroy(Exception("Failed to retrieve original data"))
           end
         end
-      else
-        destroy(Exception("Failed to retrieve original data"))
+    else
+      destroy(Exception("Failed to retrieve original data"))
     end
   be _receiveCacheHit(data: Buffer val) =>
     _renderOriginData(consume data)
@@ -208,18 +215,25 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
             try
               let currentTuple = tuples(0)?
               currentTuple._2.push(block')
-              if currentTuple._1.size() >= currentTuple._2.size() then
+              if currentTuple._2.size() >= currentTuple._1.size() then
                 _renderOriginData()
               else
                 _getTupleBlocks()
               end
             end
         end
+      | let ex: Exception =>
+        destroy(ex)
+      | BlockNotFound =>
+        destroy(Exception("Block Not Found - " + try Base58.encode((_tuples as Array[(Tuple val, Array[Block[B]])])(0)?._1(_currentTupleIndex - 1)?.data)? else "" end))
     end
 
   fun ref _checkCache() =>
     match _tuples
     | let tuples: Array[(Tuple val, Array[Block[B]])] =>
+        if tuples.size() < 1 then
+          return
+        end
         try
           let currentTuple = tuples(0)?
           if currentTuple._2.size() == 0 then
@@ -244,7 +258,7 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
 
   fun ref _getTupleBlocks() =>
     match _tuples
-    | let tuples: Array[(Tuple val, Array[Block[B]])] =>
+      | let tuples: Array[(Tuple val, Array[Block[B]])] =>
         try
           let currentTuple = tuples(0)?
           let cb = {(block: (Block[B] | Exception | BlockNotFound)) (stream: ReadableOffStream[B] tag = this) =>
@@ -268,10 +282,14 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
           let tuples = Array[(Tuple val, Array[Block[B]])](30)
           tuples.push((data , Array[Block[B]](data.size())))
           _tuples = tuples
-          _checkCache()
+          if tuples.size() < 2 then
+            _checkCache()
+          end
         | let tuples: Array[(Tuple val, Array[Block[B]])] =>
           tuples.push((data , Array[Block[B]](data.size())))
-          _checkCache()
+          if tuples.size() < 2 then
+            _checkCache()
+          end
       end
     end
 

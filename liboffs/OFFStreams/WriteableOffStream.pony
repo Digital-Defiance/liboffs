@@ -356,6 +356,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
                 end
               })
             end
+
             let currentTuple': Tuple val = consume currentTuple
             _tc(currentTuple') = originBlock.data
             notifyData(currentTuple')

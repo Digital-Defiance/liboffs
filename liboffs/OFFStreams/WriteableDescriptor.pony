@@ -184,8 +184,8 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
         _descBlockArr.unshift(descBlock)
         prior = descBlock.hash
       else
-          destroy(Exception("Failure to create descriptor block"))
-          return
+        destroy(Exception("Failure to create descriptor block"))
+        return
       end
     end
     _putDescriptorBlocks()

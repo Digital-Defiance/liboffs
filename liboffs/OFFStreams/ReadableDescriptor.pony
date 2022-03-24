@@ -4,7 +4,7 @@ use "Buffer"
 use "Exception"
 use "collections"
 
-actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] val]
+actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Tuple val]
   var _isDestroyed: Bool = false
   let _ori: ORI val
   let _blockSize: USize
@@ -13,7 +13,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
   let _tupleCount: USize // total number of  tupples descriptor
   var _tupleCounter: USize = 0
   var _currentDescriptor: (Buffer | None) = None
-  var _currentTuple: (Array[Buffer val] iso | None) = None
+  var _currentTuple: (Tuple iso | None) = None
   let _bc: BlockCache[B]
   let _offsetTuple: USize // tuple containing offset
   var _offsetRemainder: Buffer
@@ -28,7 +28,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     _blockSize = BlockSize[B]()
     _tupleCount = (_ori.finalByte/ _blockSize) + (if (_ori.finalByte % _blockSize) > 0 then 1 else 0 end)
     _cutPoint = ((_blockSize / descriptorPad)  * descriptorPad)
-    _offsetTuple = (_ori.fileOffset / _blockSize) + (if (_ori.finalByte % _blockSize) > 0 then 1 else 0 end)
+    _offsetTuple = (_ori.fileOffset / _blockSize) + (if (_ori.fileOffset % _blockSize) > 0 then 1 else 0 end)
     _descriptorPad = descriptorPad
     _bc = bc
     _offsetRemainder = Buffer(_ori.tupleSize * _descriptorPad)
@@ -51,7 +51,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
   fun ref autoPush(): Bool =>
     true
 
-  be pipe(stream: WriteablePushStream[Array[Buffer val] val] tag) =>
+  be pipe(stream: WriteablePushStream[Tuple val] tag) =>
     if destroyed() then
       notifyError(Exception("Stream has been destroyed"))
     else
@@ -63,7 +63,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       end
 
       let pipedNotify: PipedNotify iso =  object iso is PipedNotify
-        let _stream: ReadablePushStream[Array[Buffer val] val] tag = this
+        let _stream: ReadableDescriptor[B] tag = this
         fun ref apply() =>
           _stream.push()
       end
@@ -72,7 +72,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       stream.subscribe(consume pipedNotify)
 
       let errorNotify: ErrorNotify iso = object iso  is ErrorNotify
-        let _stream: ReadablePushStream[Array[Buffer val] val] tag = this
+        let _stream: ReadableDescriptor[B] tag = this
         fun ref apply (ex: Exception) => _stream.destroy(ex)
       end
       let errorNotify': ErrorNotify tag = errorNotify
@@ -80,7 +80,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       stream.subscribe(consume errorNotify)
 
       let closeNotify: CloseNotify iso = object iso  is CloseNotify
-        let _stream: ReadablePushStream[Array[Buffer val] val] tag = this
+        let _stream: ReadableDescriptor[B] tag = this
         fun ref apply () => _stream.close()
       end
       let closeNotify': CloseNotify tag = closeNotify
@@ -94,17 +94,25 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
     end
 
   fun ref _moveToOffset(descriptor: Buffer): (Buffer val, Buffer) =>
-    let descriptor': Buffer = if _offsetRemainder.size() > 0 then
+    var descriptor': Buffer = if _offsetRemainder.size() > 0 then
       Buffer(descriptor.size() + _offsetRemainder.size()).>append(_offsetRemainder = Buffer(0)).>append(descriptor)
     else
       descriptor
     end
+
     if _offsetTuple > 0 then
-      if _tupleCounter < _offsetTuple then
-        _tupleCounter = (descriptor'.size() - _descriptorPad) / (_descriptorPad * _ori.tupleSize)
-        let cut: USize = (descriptor'.size() - _descriptorPad) - ((descriptor'.size() - _descriptorPad) % (_descriptorPad * _ori.tupleSize))
-        _offsetRemainder = descriptor'.slice(cut, descriptor'.size() - _descriptorPad)
-        (CopyBufferRange(descriptor', (descriptor'.size() - _descriptorPad), descriptor'.size()), Buffer(0))
+      if (_tupleCounter < _offsetTuple) then
+        if _offsetTuple > ((descriptor'.size() % (_descriptorPad * _ori.tupleSize)) + _tupleCounter) then
+          _tupleCounter = (descriptor'.size() - _descriptorPad) / (_descriptorPad * _ori.tupleSize)
+          let cut: USize = (descriptor'.size() - _descriptorPad) - ((descriptor'.size() - _descriptorPad) % (_descriptorPad * _ori.tupleSize))
+          _offsetRemainder = descriptor'.slice(cut, descriptor'.size() - _descriptorPad)
+          (CopyBufferRange(descriptor', (descriptor'.size() - _descriptorPad), descriptor'.size()), Buffer(0))
+        else
+          let cut: USize = ((_offsetTuple - _tupleCounter) *  _ori.tupleSize)  * _descriptorPad
+          descriptor' = descriptor'.slice(cut)
+          _tupleCounter = _tupleCounter + (cut / _ori.tupleSize)
+          (CopyBufferRange(descriptor', 0, _descriptorPad), descriptor'.slice(_descriptorPad))
+        end
       else
         (CopyBufferRange(descriptor', 0, _descriptorPad), descriptor'.slice(_descriptorPad))
       end
@@ -112,7 +120,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       (CopyBufferRange(descriptor', 0, _descriptorPad), descriptor'.slice(_descriptorPad))
     end
 
-  be _receiveDescriptorBlock(block: (Block[B] | Exception | BlockNotFound), cb: ({(Array[Buffer val] val)} val | None) = None) =>
+  be _receiveDescriptorBlock(block: (Block[B] | Exception | BlockNotFound), cb: ({(Tuple val)} val | None) = None) =>
     match block
       | let err: Exception => destroy(err)
       | BlockNotFound =>  destroy(Exception("Descriptor Block Not Found"))
@@ -130,15 +138,16 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
             currentDescriptor
         end
         while currentDescriptor.size() > 0  do
-          var currentTuple: Array[Buffer val] iso = try
-            ((_currentTuple = None) as Array[Buffer val] iso^ )
+          var currentTuple: Tuple iso = try
+            ((_currentTuple = None) as Tuple iso^ )
           else
-            recover Array[Buffer val](_ori.tupleSize) end
+            recover Tuple(_ori.tupleSize) end
           end
 
           var cursor: (Buffer val, Buffer) = _moveToOffset(currentDescriptor)
           var key: Buffer val = cursor._1
           currentDescriptor = cursor._2
+
           while currentTuple.size() < _ori.tupleSize do
             if currentDescriptor.size() <= 0 then
               _getDescriptor(key)
@@ -146,7 +155,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
               _currentDescriptor = None
               return
             else
-              currentTuple.push(key)
+              try currentTuple.push(key)? else destroy(Exception("Tuple append failure")) end
               if currentTuple.size() == _ori.tupleSize then
                 break
               else
@@ -159,7 +168,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
           match cb
             | None =>
               notifyData(consume currentTuple)
-            | let cb': {(Array[Buffer val] val)} val =>
+            | let cb': {(Tuple val)} val =>
               cb'(consume currentTuple)
           end
           _tupleCounter = _tupleCounter + 1
@@ -190,7 +199,7 @@ actor ReadableDescriptor[B: BlockType] is ReadablePushStream[Array[Buffer val] v
       end
     end
 
-  be read(cb: {(Array[Buffer val] val)} val, size:(USize | None) = None) =>
+  be read(cb: {(Tuple val)} val, size:(USize | None) = None) =>
     if destroyed() then
       notifyError(Exception("Stream has been destroyed"))
     else

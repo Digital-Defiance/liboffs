@@ -2,7 +2,6 @@ use "files"
 use "collections"
 use "json"
 use "time"
-use "ponytest"
 use "Buffer"
 use "Exception"
 
@@ -89,6 +88,7 @@ actor Section [B: BlockType]
             let text = doc.string()
             file.set_length(text.size())
             file.write(text)
+            file.flush()
             file.dispose()
         end
     end
@@ -201,7 +201,7 @@ actor Section [B: BlockType]
             let byte: ISize = (index * BlockSize[B]()).isize()
             file'.seek(byte)
             let ok = file'.write(block.data.data)
-            file'.sync()
+            file'.flush()
             if (ok) then
               cb((index, full()))
               _save()
