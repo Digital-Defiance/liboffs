@@ -335,40 +335,43 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
     try
       match _originBlocks.shift()?
       | (let originBlock: Block[B], let tupleParts: Array[Block[B]]) =>
-          var offBlock: Block[B] = originBlock
           try
+            var offData: Buffer val = originBlock.data
+
             for block in tupleParts.values() do
-              offBlock = offBlock xor? block
-            end
-          else
-            destroy(Exception("Failed to create off block"))
-            return
-          end
-          tupleParts.push(offBlock)
-          let currentTuple: Tuple iso = recover Tuple(_tupleSize) end
-          try
-            for block in tupleParts.values() do
-              currentTuple.push(block.hash)?
-              _bc.put(block,{(err:(None | Exception)) (stream: WriteableOffStream[B] tag = this, block: Block[B] = block) =>
-                match err
-                | let err': Exception =>
-                    stream.destroy(err')
-                end
-              })
+              offData =  recover val offData xor block.data end
             end
 
-            let currentTuple': Tuple val = consume currentTuple
-            _tc(currentTuple') = originBlock.data
-            notifyData(currentTuple')
-            if _isFinalBlock(originBlock) then
-              _finalBlock = None
-              notifyFinished()
-              notifyComplete()
-              _close()
-            elseif _originBlocks.size() > 0 then
-              _getRandomBlocks()
+            let offBlock: Block[B] = Block[B](offData)?
+            tupleParts.push(offBlock)
+            let currentTuple: Tuple iso = recover Tuple(_tupleSize) end
+            try
+              for block in tupleParts.values() do
+                currentTuple.push(block.hash)?
+                _bc.put(block,{(err:(None | Exception)) (stream: WriteableOffStream[B] tag = this, block: Block[B] = block) =>
+                  match err
+                  | let err': Exception =>
+                      stream.destroy(err')
+                  end
+                })
+              end
+
+              let currentTuple': Tuple val = consume currentTuple
+              _tc(currentTuple') = originBlock.data
+              notifyData(currentTuple')
+              if _isFinalBlock(originBlock) then
+                _finalBlock = None
+                notifyFinished()
+                notifyComplete()
+                _close()
+              elseif _originBlocks.size() > 0 then
+                _getRandomBlocks()
+              end
+            else
+              destroy(Exception("Failed to create off block"))
+              return
             end
-          else
+            else
             destroy(Exception("Tuple Exceeds Size"))
           end
       end

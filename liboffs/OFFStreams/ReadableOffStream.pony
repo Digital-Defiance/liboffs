@@ -166,10 +166,11 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
           try
             let currentTuple = tuples.shift()?
             _currentTupleIndex = 0
-            var originBlock: Block[B] = currentTuple._2.shift()?
+            var originData: Buffer val = currentTuple._2.shift()?.data
             for block in currentTuple._2.values() do
-              originBlock = originBlock xor? block
+              originData =  recover val originData xor block.data end
             end
+            let originBlock: Block[B] = Block[B](originData)?
             _tc(currentTuple._1) = originBlock.data
             let range: (USize, USize) = if _isFirstTuple(currentTuple._1) then
               if ((_sentBytes + (originBlock.data.size() - _offsetRemainder)) > _ori.finalByte) then
