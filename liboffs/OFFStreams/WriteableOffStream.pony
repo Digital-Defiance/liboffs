@@ -1,5 +1,5 @@
 use "Streams"
-use "Blake2b"
+use "Blake3"
 use "Buffer"
 use "Exception"
 use "collections"
@@ -20,7 +20,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
   var _accumulator: Buffer iso
   var _readable: Bool = false
   var _isDestroyed: Bool = false
-  let _hash: Blake2b
+  let _hash: Blake3
   let _subscribers': Subscribers
   var _pipeNotifiers': (Array[Notify tag] iso | None) = None
   var _isPiped: Bool = false
@@ -36,7 +36,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
 
   new create(bc: BlockCache[B], tc: TupleCache, recipes: Array[BlockRecipe[B] tag] iso, digestSize: USize, tupleSize: USize) =>
     _subscribers' = Subscribers(3)
-    _hash = Blake2b(digestSize)
+    _hash = Blake3(digestSize)
     _bc = bc
     _tc = tc
     _bs = BlockService[B]

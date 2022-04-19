@@ -3,7 +3,7 @@ use "time"
 use "random"
 use "collections"
 use "Buffer"
-use "Blake2b"
+use "Blake3"
 
 primitive Mega
 primitive Nano
@@ -69,7 +69,7 @@ class val Block [B: BlockType]
       error
     end
     data = data'
-    let hasher= Blake2b(32)
+    let hasher= Blake3(32)
     hasher.update(data.data)
     hash = Buffer.fromArray(hasher.digest())
 

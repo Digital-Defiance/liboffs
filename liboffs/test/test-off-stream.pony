@@ -7,7 +7,7 @@ use "files"
 use "Config"
 use "Exception"
 use "Buffer"
-use "Blake2b"
+use "Blake3"
 
 class iso _TestOffStream is UnitTest
   fun name(): String => "Testing Off Streams"
@@ -80,10 +80,8 @@ actor _ReadableOffStreamTester[B: BlockType]
 
     match _ori
     | let ori: ORI val =>
-        let hasher = Blake2b(_descriptorPad)
-        while fileDst.position() < fileDst.size() do
-          hasher.update(fileDst.read(if (fileDst.position() + 64000) > fileDst.size() then fileDst.size() - fileDst.position() else 64000 end))
-        end
+        let hasher = Blake3(_descriptorPad)
+        hasher.update(fileDst.read(fileDst.size()))
 
         let fileDstHash = Buffer.fromArray(hasher.digest())
         _t.assert_true(fileDstHash == ori.fileHash)

@@ -24,16 +24,16 @@
       "version": "1.0.1"
     },
     {
-      "locator": "github.com/vijayee/Streams.git",
-      "version": "0.0.3"
-    },
-    {
-      "locator": "github.com/vijayee/Blake2b.git",
-      "version": "0.0.1"
-    },
-    {
       "locator": "github.com/vijayee/LRUCache.git",
       "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/vijayee/Blake3.git",
+      "version": "0.8.9"
+    },
+    {
+      "locator": "github.com/vijayee/Streams.git",
+      "version": "0.0.3"
     }
   ],
   "info": {
