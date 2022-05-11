@@ -4,8 +4,8 @@ actor TupleCache
   let _cache: LRUCache[Tuple val, Buffer val]
   new create(size': USize) =>
     _cache = LRUCache[Tuple val, Buffer val](size')
-be apply(key: Tuple val, cb: {((Buffer val | None))} val) =>
-  cb(_cache(key))
+be apply(key: Tuple val, cb: {(((Buffer val | None), Tuple val))} val) =>
+  cb((_cache(key), key))
 
 be update(key: Tuple val, value: Buffer val) =>
   _cache(key) = value

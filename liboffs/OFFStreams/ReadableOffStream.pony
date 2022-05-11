@@ -202,7 +202,8 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
     else
       destroy(Exception("Failed to retrieve original data"))
     end
-  be _receiveCacheHit(data: Buffer val) =>
+  be _receiveCacheHit(data: Buffer val, tuple: Tuple val) =>
+    _bc.incrementTuple(tuple)
     _renderOriginData(consume data)
 
   be _receiveCacheMiss() =>
@@ -238,12 +239,12 @@ actor ReadableOffStream[B: BlockType] is TransformPushStream[Buffer iso, Tuple v
         try
           let currentTuple = tuples(0)?
           if currentTuple._2.size() == 0 then
-            _tc(currentTuple._1, {(data: (Buffer val | None)) (stream: ReadableOffStream[B] tag = this) =>
-              match data
+            _tc(currentTuple._1, {(data: ((Buffer val | None), Tuple val)) (stream: ReadableOffStream[B] tag = this) =>
+              match data._1
                 | None =>
                   stream._receiveCacheMiss()
                 | let data': Buffer val =>
-                  stream._receiveCacheHit(data')
+                  stream._receiveCacheHit(data', data._2)
               end
             })
           else

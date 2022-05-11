@@ -6,6 +6,7 @@ use "Config"
 use "Buffer"
 use "json"
 use "Exception"
+use "../OFFStreams"
 
 
 primitive BlockNotFound
@@ -126,6 +127,12 @@ actor BlockCache [B: BlockType]
     else
       cb(Exception("Section Write Error"))
     end
+
+  be incrementTuple(tuple: Tuple val) =>
+    for hash in tuple.values() do
+      try _index.find(hash)? end
+    end
+
 
   be get(hash: Buffer val, cb: {((Block[B] | Exception | BlockNotFound))} val) =>
     match _blocks(hash)
