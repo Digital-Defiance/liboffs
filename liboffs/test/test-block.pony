@@ -1,5 +1,5 @@
 use "package:../BlockCache"
-use "ponytest"
+use "pony_test"
 use "collections"
 use "Buffer"
 

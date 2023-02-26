@@ -10,7 +10,7 @@ primitive GetBit
     end
     let byte: USize = index / 8 // which byte in the array
     let byteIndex: USize = index % 8 // index of the bit in the bytes
-    ((data(byte)? and (1 << (byteIndex.u8() - 1))) != 0)
+    ((data(byte)? and (1 << byteIndex.u8())) != 0)
 
 primitive BufferToJson
   fun apply(data: Buffer val) : JsonArray =>

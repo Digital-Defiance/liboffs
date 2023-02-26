@@ -5,7 +5,7 @@
   "deps": [
     {
       "locator": "github.com/vijayee/Config.git",
-      "version": "0.0.1"
+      "version": "0.0.2"
     },
     {
       "locator": "github.com/vijayee/Print.git",
@@ -29,11 +29,11 @@
     },
     {
       "locator": "github.com/vijayee/Blake3.git",
-      "version": "0.8.9"
+      "version": "0.9.0"
     },
     {
       "locator": "github.com/vijayee/Streams.git",
-      "version": "0.0.3"
+      "version": "0.0.4"
     }
   ],
   "info": {

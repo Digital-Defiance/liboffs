@@ -1,4 +1,4 @@
-use "ponytest"
+use "pony_test"
 use "../BlockCache"
 use "../OFFStreams"
 use "Streams"
@@ -11,7 +11,7 @@ class iso _TestNewBlocksRecipe is UnitTest
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      let offDir = Directory(FilePath(FileAuth.create(t.env.root), "offs/"))?
       offDir.remove("blocks")
     end
   fun apply(t: TestHelper) =>
@@ -27,7 +27,7 @@ actor _NewBlocksRecipeTester[B: BlockType]
     _t = t
     _arr = Array[Block[B]](4)
     try
-      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let path: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/")
       let bc: BlockCache[B] = NewBlockCache[B](DefaultConfig(), path)?
       let br: NewBlocksRecipe[B] = NewBlocksRecipe[B](bc)
       _br = br

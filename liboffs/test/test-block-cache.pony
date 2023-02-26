@@ -1,4 +1,4 @@
-use "ponytest"
+use "pony_test"
 use "collections"
 use "files"
 use "../BlockCache"
@@ -135,7 +135,7 @@ class iso _TestBlockCache is UnitTest
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      let offDir = Directory(FilePath(FileAuth.create(t.env.root), "offs/"))?
       offDir.remove("blocks")
     end
   fun apply(t: TestHelper) =>
@@ -149,7 +149,7 @@ class iso _TestBlockCache is UnitTest
           end
           blocks'
       end
-      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let path: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/")
       let bc': BlockCache[Standard] = NewBlockCache[Standard](DefaultConfig(), path)?
       let bc = BlockCacheTester[Standard](t, blocks, path, bc', {() =>
         t.complete(true)

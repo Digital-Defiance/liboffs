@@ -1,4 +1,4 @@
-use "ponytest"
+use "pony_test"
 use "../BlockCache"
 use "../OFFStreams"
 use "Streams"
@@ -14,7 +14,7 @@ class iso _TestDescriptor is UnitTest
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      let offDir = Directory(FilePath(FileAuth.create(t.env.root), "offs/"))?
       offDir.remove("blocks")
     end
   fun apply(t: TestHelper) =>
@@ -46,7 +46,7 @@ actor _ReadableDescriptorTester[B: BlockType]
     _t = t
     _tuple = recover Tuple(3) end
     try
-      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let path: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/")
       let conf: Config val = DefaultConfig()
       _descriptorPad = conf("descriptorPad")? as USize
       let tupleSize = conf("tupleSize")? as USize

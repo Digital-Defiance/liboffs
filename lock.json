@@ -2,11 +2,11 @@
   "locks": [
     {
       "locator": "github.com/vijayee/Config.git",
-      "revision": "0.0.1"
+      "revision": "0.0.2"
     },
     {
       "locator": "github.com/vijayee/Blake3.git",
-      "revision": "0.8.9"
+      "revision": "0.9.0"
     },
     {
       "locator": "github.com/vijayee/Print.git",
@@ -30,7 +30,7 @@
     },
     {
       "locator": "github.com/vijayee/Streams.git",
-      "revision": "0.0.3"
+      "revision": "0.0.4"
     },
     {
       "locator": "github.com/vijayee/Blake2b.git",

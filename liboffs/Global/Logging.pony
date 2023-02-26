@@ -5,7 +5,7 @@ use "files"
 
 primitive CreateLogger
   fun apply(filename: String, env: Env): Logger[String val] val  =>
-    let path: FilePath = FilePath(env.root, filename)
+    let path: FilePath = FilePath(FileAuth.create(env.root), filename)
     let logFile: File iso = recover File(path) end
     let logFileStream: FileStream = FileStream(consume logFile)
     StringLogger(Info, logFileStream)

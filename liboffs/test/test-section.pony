@@ -1,4 +1,4 @@
-use "ponytest"
+use "pony_test"
 use "../BlockCache"
 use "collections"
 use "files"
@@ -22,7 +22,7 @@ class iso _TestSection is UnitTest
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      let offDir = Directory(FilePath(FileAuth.create(t.env.root), "offs/"))?
       offDir.remove("nano")
     end
   fun apply(t: TestHelper) =>
@@ -38,8 +38,8 @@ class iso _TestSection is UnitTest
       end
 
 
-      let path: FilePath = FilePath(t.env.root, "offs/blocks/nano/sections/data/")
-      let metaPath: FilePath = FilePath(t.env.root, "offs/blocks/nano/sections/meta/")
+      let path: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/nano/sections/data/")
+      let metaPath: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/nano/sections/meta/")
       path.mkdir()
       metaPath.mkdir()
 
@@ -218,13 +218,13 @@ class iso _TestSection is UnitTest
         var _i: USize = 0
         var _section: Section[Nano] = section
         var _t: TestHelper = t
-        var _blockIndex: Index iso = recover Index(5, FilePath(t.env.root, "offs/blocks/nano/index/"))? end
+        var _blockIndex: Index iso = recover Index(5, FilePath(FileAuth.create(t.env.root), "offs/blocks/nano/index/"))? end
         be apply() =>
           try
             if _i < _blocks.size() then
               _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
             else
-              let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root, "offs/blocks/nano/index/"))? end
+              let index'' : Index iso = _blockIndex = recover Index(5, FilePath(FileAuth.create(t.env.root), "offs/blocks/nano/index/"))? end
               _cb(consume index'')
             end
           else
@@ -247,7 +247,7 @@ class iso _TestSection is UnitTest
                 if _i < _blocks.size() then
                   _section.write(_blocks(_i = _i + 1)?, {(index: ((USize, Bool) | Exception)) (next : WriteNextLoop tag = this) => next.loop(index) })
                 else
-                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(t.env.root,  "offs/blocks/nano/index/"))? end
+                  let index'' : Index iso = _blockIndex = recover Index(5, FilePath(FileAuth.create(t.env.root),  "offs/blocks/nano/index/"))? end
                   _cb(consume index'')
                 end
               else

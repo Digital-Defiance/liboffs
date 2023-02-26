@@ -1,5 +1,5 @@
 use "package:../BlockCache"
-use "ponytest"
+use "pony_test"
 use "collections"
 use "json"
 
@@ -33,7 +33,7 @@ class iso _TestFibonacciHitCounter is UnitTest
     t.assert_true(counter1 < counter2)
     t.assert_true(counter2 > counter1)
     t.assert_false(counter2 == counter1)
-    t.assert_true(counter2 != counter1)    
+    t.assert_true(counter2 != counter1)
 
 class iso _TestFibonacciHitCounterJSON is UnitTest
   fun name(): String => "Testing Fibonacci Hit Counter JSON"

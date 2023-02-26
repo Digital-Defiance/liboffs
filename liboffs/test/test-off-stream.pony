@@ -1,4 +1,4 @@
-use "ponytest"
+use "pony_test"
 use "../BlockCache"
 use "../OFFStreams"
 use "Streams"
@@ -14,7 +14,7 @@ class iso _TestOffStream is UnitTest
   fun exclusion_group(): String => "Block Cache"
   fun ref set_up(t: TestHelper) =>
     try
-      let offDir = Directory(FilePath(t.env.root, "offs/"))?
+      let offDir = Directory(FilePath(FileAuth.create(t.env.root), "offs/"))?
       offDir.remove("blocks")
     end
   fun apply(t: TestHelper) =>
@@ -30,7 +30,7 @@ class iso _TestOffStream is UnitTest
       let descriptorPad = conf("descriptorPad")? as USize
       let tupleSize = conf("tupleSize")? as USize
       let tc: TupleCache = TupleCache(500)
-      let path: FilePath = FilePath(t.env.root, "offs/blocks/")
+      let path: FilePath = FilePath(FileAuth.create(t.env.root), "offs/blocks/")
       let bc: BlockCache[Standard] = NewBlockCache[Standard](conf, path)?
       let testerR: _ReadableOffStreamTester[Standard] = _ReadableOffStreamTester[Standard](t, conf, tc, bc)
       let cb = {(ori: ORI iso) (tester: _ReadableOffStreamTester[Standard] = testerR) =>
@@ -61,7 +61,7 @@ actor _ReadableOffStreamTester[B: BlockType]
     try
       _descriptorPad = config("descriptorPad")? as USize
       let tupleSize = config("tupleSize")? as USize
-      let filePath = FilePath(t.env.root, "test.pdf")
+      let filePath = FilePath(FileAuth.create(t.env.root), "test.pdf")
       let file: File iso = recover File(filePath) end
       _ws = WriteableFileStream(consume file)
     else
@@ -70,8 +70,8 @@ actor _ReadableOffStreamTester[B: BlockType]
     end
   be complete() =>
     _t.complete_action("file")
-    let fileSrcPath = FilePath(_t.env.root, "liboffs/test/test.pdf")
-    let fileDstPath = FilePath(_t.env.root, "test.pdf")
+    let fileSrcPath = FilePath(FileAuth.create(_t.env.root), "liboffs/test/test.pdf")
+    let fileDstPath = FilePath(FileAuth.create(_t.env.root), "test.pdf")
 
     let fileSrc = File(fileSrcPath)
     let fileDst = File(fileDstPath)
@@ -149,7 +149,7 @@ actor _WriteableOffStreamTester[B: BlockType]
       let recipes: Array[BlockRecipe[B] tag] iso = recover Array[BlockRecipe[B] tag] end
       recipes.push(rpbr)
       recipes.push(nbr)
-      let filePath = FilePath(t.env.root, "liboffs/test/test.pdf")
+      let filePath = FilePath(FileAuth.create(t.env.root), "liboffs/test/test.pdf")
       let file: File iso =recover File(filePath) end
       let ori: ORI = ORI(where finalByte' = file.size())
       ori.tupleSize = tupleSize
