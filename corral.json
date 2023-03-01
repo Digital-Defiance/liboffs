@@ -8,8 +8,16 @@
       "version": "0.0.2"
     },
     {
+      "locator": "github.com/vijayee/Blake3.git",
+      "version": "0.9.0"
+    },
+    {
       "locator": "github.com/vijayee/Print.git",
       "version": "0.0.1"
+    },
+    {
+      "locator": "github.com/ponylang/json.git",
+      "version": "0.1.0"
     },
     {
       "locator": "github.com/vijayee/Base58.git",
@@ -24,16 +32,12 @@
       "version": "1.0.1"
     },
     {
+      "locator": "github.com/vijayee/Streams.git",
+      "version": "0.1.0"
+    },
+    {
       "locator": "github.com/vijayee/LRUCache.git",
       "version": "0.0.1"
-    },
-    {
-      "locator": "github.com/vijayee/Blake3.git",
-      "version": "0.9.0"
-    },
-    {
-      "locator": "github.com/vijayee/Streams.git",
-      "version": "0.0.4"
     }
   ],
   "info": {

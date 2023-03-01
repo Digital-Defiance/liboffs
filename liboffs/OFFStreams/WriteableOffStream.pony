@@ -6,12 +6,12 @@ use "collections"
 use "Base58"
 use "../BlockCache"
 
-trait FileHashNotify is Notify
+trait FileHashNotify is PayloadNotify[Buffer val]
   fun ref apply(fileHash: Buffer val)
   fun box hash(): USize =>
     51
 
-primitive FileHashKey is FileHashNotify
+primitive FileHashEvent is FileHashNotify
   fun ref apply(fileHash: Buffer val) => None
 
 actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer iso]
@@ -68,44 +68,6 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
 
   fun ref pipeNotifiers(): (Array[Notify tag] iso^ | None) =>
     _pipeNotifiers' = None
-
-  fun ref subscriberCount[A: Notify](): USize =>
-    let subscribers': Subscribers = subscribers()
-    try
-      iftype A <: ThrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: UnthrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: ErrorNotify then
-        subscribers'(ErrorKey)?.size()
-      elseif A <: PipedNotify then
-        subscribers'(PipedKey)?.size()
-      elseif A <: UnpipedNotify then
-        subscribers'(UnpipedKey)?.size()
-      elseif A <: PipeNotify then
-        subscribers'(PipeKey)?.size()
-      elseif A <: UnpipeNotify then
-        subscribers'(UnpipeKey)?.size()
-      elseif A <: DataNotify[Tuple val] then
-        subscribers'(DataKey[Tuple val])?.size()
-      elseif A <: ReadableNotify then
-        subscribers'(ReadableKey)?.size()
-      elseif A <: CompleteNotify then
-        subscribers'(CompleteKey)?.size()
-      elseif A <: FinishedNotify then
-        subscribers'(FinishedKey)?.size()
-      elseif A <: EmptyNotify then
-        subscribers'(EmptyKey)?.size()
-      elseif A <: OverflowNotify then
-        subscribers'(OverflowKey)?.size()
-      elseif A <: FileHashNotify then
-        subscribers'(FileHashKey)?.size()
-      else
-        0
-      end
-    else
-      0
-    end
 
   be _recipeError(ex: Exception) =>
     notifyError(ex)
@@ -189,24 +151,7 @@ actor WriteableOffStream[B: BlockType] is TransformPushStream[Tuple val, Buffer 
     end
 
   fun ref notifyFileHash(fileHash: Buffer val) =>
-    try
-      let subscribers': Subscribers = subscribers()
-      let onces = Array[USize](subscribers'.size())
-      var i: USize = 0
-      for notify in subscribers'(FileHashKey)?.values() do
-        match notify
-        |  (let notify': FileHashNotify, let once: Bool) =>
-            notify'(fileHash)
-            if once then
-              onces.push(i)
-            end
-        end
-        i = i + 1
-      end
-      if onces.size() > 0 then
-        discardOnces(subscribers'(FileHashKey)?, onces)
-      end
-    end
+    notifyPayload[Buffer val](FileHashEvent, consume fileHash)
 
   be piped(stream: ReadablePushStream[Buffer iso] tag) =>
     if destroyed() then

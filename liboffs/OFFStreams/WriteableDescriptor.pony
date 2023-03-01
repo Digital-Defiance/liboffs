@@ -4,12 +4,12 @@ use "Buffer"
 use "Exception"
 use "collections"
 
-trait DescriptorHashNotify is Notify
+trait DescriptorHashNotify is PayloadNotify[Buffer val]
   fun ref apply(descriptorHash: Buffer val)
   fun box hash(): USize =>
     50
 
-primitive DescriptorKey is DescriptorHashNotify
+primitive DescriptorEvent is DescriptorHashNotify
   fun ref apply(descriptorHash: Buffer val) => None
 
 actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
@@ -40,35 +40,12 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
     _blockCount = _dataLength / _blockSize
     _bs = consume bs
 
-
-  fun ref subscriberCount[A: Notify](): USize =>
-    let subscribers': Subscribers = subscribers()
-    try
-      iftype A <: ThrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: UnthrottledNotify then
-        subscribers'(ThrottledKey)?.size()
-      elseif A <: ErrorNotify then
-        subscribers'(ErrorKey)?.size()
-      elseif A <: PipedNotify then
-        subscribers'(PipedKey)?.size()
-      elseif A <: UnpipedNotify then
-        subscribers'(UnpipedKey)?.size()
-      elseif A <: DescriptorHashNotify  then
-        subscribers'(DescriptorKey)?.size()
-      else
-        0
-      end
-    else
-      0
-    end
-
  fun ref notifyDescriptor(descriptorHash: Buffer val) =>
    try
      let subscribers': Subscribers = subscribers()
      let onces = Array[USize](subscribers'.size())
      var i: USize = 0
-     for notify in subscribers'(DescriptorKey)?.values() do
+     for notify in subscribers'(DescriptorEvent)?.values() do
        match notify
        |  (let notify': DescriptorHashNotify, let once: Bool) =>
            notify'(descriptorHash)
@@ -79,7 +56,7 @@ actor WriteableDescriptor[B: BlockType] is WriteablePushStream[Tuple val]
        i = i + 1
      end
      if onces.size() > 0 then
-       discardOnces(subscribers'(DescriptorKey)?, onces)
+       discardOnces(subscribers'(DescriptorEvent)?, onces)
      end
      _sentDescriptor = true
    end

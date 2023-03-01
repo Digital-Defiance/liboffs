@@ -23,7 +23,7 @@ actor RandomPopularityRecipe[B: BlockType] is BlockRecipe[B]
     gen = Rand(now._1.u64(), now._2.u64())
 
   fun ref _hasReaders(): Bool =>
-    subscriberCount[DataNotify[Block[B]]]() > 0
+    subscriberCount(DataEvent[Block[B]]) > 0
 
   fun readable(): Bool =>
     _isReadable
